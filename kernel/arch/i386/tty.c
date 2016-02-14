@@ -26,6 +26,29 @@ void terminal_initialize(void)
 	}
 }
 
+void terminal_scroll(bool force)
+{
+	//check if need to scroll
+	if(terminal_row < VGA_HEIGHT )
+	{
+		if(!force)
+			return;
+		terminal_row--;
+	}else
+		terminal_row = VGA_HEIGHT - 1; 
+
+	memmove(terminal_buffer, terminal_buffer + VGA_WIDTH,(VGA_HEIGHT - 1) * VGA_WIDTH * sizeof(*terminal_buffer));
+	
+	for (size_t x = 0; x < VGA_WIDTH; x++)
+	{
+		const size_t index = (VGA_HEIGHT - 1) * VGA_WIDTH; 
+		terminal_buffer[index + x] = make_vgaentry(' ', terminal_color);
+	}
+
+}
+
+
+
 void terminal_setcolor(uint8_t color)
 {
 	terminal_color = color;
@@ -39,15 +62,37 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y)
 
 void terminal_putchar(char c)
 {
-	terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
-	if ( ++terminal_column == VGA_WIDTH )
-	{
-		terminal_column = 0;
-		if ( ++terminal_row == VGA_HEIGHT )
-		{
-			terminal_row = 0;
-		}
+	size_t x;
+	switch (c) {
+		case '\n':
+			terminal_column = 0;
+			terminal_row++;
+			break;
+		case '\r':
+			terminal_column = 0;
+			break;
+		case '\b':
+			if(terminal_column)
+				terminal_column--;
+			
+			terminal_putentryat(' ', terminal_color, terminal_column, terminal_row);
+			break;
+		case '\t':
+			x = terminal_column >> 2;
+			terminal_column = (x + 1) << 2;
+			break;
+		default:
+			terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+			terminal_column++;
+			break;
 	}
+
+	if (terminal_column >= VGA_WIDTH )
+	{
+		terminal_column -= VGA_WIDTH;
+		terminal_row++;
+	}
+	terminal_scroll(false);
 }
 
 void terminal_write(const char* data, size_t size)
@@ -60,3 +105,22 @@ void terminal_writestring(const char* data)
 {
 	terminal_write(data, strlen(data));
 }
+
+
+void terminal_print_logo(void)
+{
+	char logo[800] = 
+		"                                                            \n"
+		"   #### ##      ####    ####              ####     #####    \n"
+		"   ##   ##    ##      ##    ##          ##    ##  ##        \n"
+		"   ###  ##    ##      ##    ##  ######  ##    ##   #####    \n"
+		"   ##   ##    ##      ##    ##          ##    ##       ##   \n"
+		"   #### ####    ####    ####              ####     #####    \n"
+		"                                                            \n";
+	terminal_setcolor(make_color(COLOR_LIGHT_BROWN, COLOR_BLUE));
+	terminal_writestring(logo);
+	terminal_setcolor(make_color(COLOR_LIGHT_GREY, COLOR_BLACK));
+
+}
+
+

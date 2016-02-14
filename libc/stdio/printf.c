@@ -9,57 +9,114 @@ static void print(const char* data, size_t data_length)
 		putchar((int) ((const unsigned char*) data)[i]);
 }
 
+
+
+char* i_convert (char* s, unsigned long long val, int base, int digits)
+{
+	int d;
+	
+	d = val % base;
+	val /= base;
+	if(val || digits > 1)
+		s = i_convert (s, val, base, digits - 1);	
+	*(s++) = (d>9 ? ('a' + d - 10) : ('0' + d));	
+
+	return s;
+}
+
+size_t i_print(unsigned long long val, int base)
+{
+	char buff[1024];
+	char* s = buff;
+	size_t size;
+
+	
+
+	s = i_convert(s, val, base, 1);
+	size = s - buff;
+	print(buff, size);
+	return size;
+	
+}
+
+
+
+
 int printf(const char* restrict format, ...)
 {
 	va_list parameters;
 	va_start(parameters, format);
 
 	int written = 0;
-	size_t amount;
-	bool rejected_bad_specifier = false;
+	size_t amount, len;
+
+	char c;
+	const char* s;
+	int i;
+	unsigned int u;
 
 	while ( *format != '\0' )
 	{
-		if ( *format != '%' )
+		if ( *format == '%' )
 		{
-		print_c:
-			amount = 1;
+			switch(*(++format))
+			{
+				case 'c':
+					c = (char) va_arg(parameters, int /* char promotes to int */);
+					print(&c, sizeof(c));
+					written++;
+					break;
+				case 's':
+					s = va_arg(parameters, const char*);
+					len = strlen(s);
+					print(s, len);
+					written += len;					
+					break;
+				case 'd':
+				case 'i':
+					i = va_arg(parameters, int);
+					if(i < 0)
+					{
+						print("-", 1);
+						written++;
+						i = -i;
+					}
+					written += i_print(i, 10);
+					break;
+				case 'u':
+					u = va_arg(parameters, unsigned int);
+					written += i_print(u, 10);
+					break;				
+				case 'x':
+				case 'p':
+					u = va_arg(parameters, unsigned int);
+					written += i_print(u, 16);
+					break;
+				case 'o':
+					u = va_arg(parameters, unsigned int);
+					written += i_print(u, 8);
+					break;
+				case '\0':
+					format--;
+				break;	
+				default:	
+					if (*format != '%')
+					{
+						print("%", 1);	
+						written++;
+					}	
+					print(format, 1);
+					written++;
+					break;
+			}
+			format++;
+		}else {
+			amount = 0;
 			while ( format[amount] && format[amount] != '%' )
 				amount++;
 			print(format, amount);
 			format += amount;
 			written += amount;
-			continue;
-		}
-
-		const char* format_begun_at = format;
-
-		if ( *(++format) == '%' )
-			goto print_c;
-
-		if ( rejected_bad_specifier )
-		{
-		incomprehensible_conversion:
-			rejected_bad_specifier = true;
-			format = format_begun_at;
-			goto print_c;
-		}
-
-		if ( *format == 'c' )
-		{
-			format++;
-			char c = (char) va_arg(parameters, int /* char promotes to int */);
-			print(&c, sizeof(c));
-		}
-		else if ( *format == 's' )
-		{
-			format++;
-			const char* s = va_arg(parameters, const char*);
-			print(s, strlen(s));
-		}
-		else
-		{
-			goto incomprehensible_conversion;
 		}
 	}
 

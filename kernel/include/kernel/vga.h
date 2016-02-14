@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#define VGA_WIDTH  80
+#define VGA_HEIGHT  25
+
+
 enum vga_color
 {
 	COLOR_BLACK = 0,
@@ -34,9 +38,6 @@ static inline uint16_t make_vgaentry(char c, uint8_t color)
 	uint16_t color16 = color;
 	return c16 | color16 << 8;
 }
-
-static const size_t VGA_WIDTH = 80;
-static const size_t VGA_HEIGHT = 25;
 
 static uint16_t* const VGA_MEMORY = (uint16_t*) 0xB8000;
 

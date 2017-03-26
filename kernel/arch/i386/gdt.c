@@ -4,13 +4,13 @@
 #include <kernel/gdt.h>
 #include <kernel/tty.h>
 
-#define GDT_SIZE 5
+
 
 struct gdt_pointer gdt_p;
 struct gdt_entry gdt[GDT_SIZE];
 
 static void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
-extern void gdt_flush();
+extern void gdt_flush(struct gdt_pointer* ptr);
 
 void gdt_initialize() {
     gdt_p.offset    =   (uint32_t) &gdt;
@@ -41,7 +41,7 @@ void gdt_initialize() {
                     GDT_ACC_PRESENT | GDT_ACC_PRIV3 | GDT_ACC_RESV | GDT_ACC_RW,
                     GDT_FLAG_GRAN4K | GDT_FLAG_32BIT
                 );  
-    gdt_flush();            
+    gdt_flush(&gdt_p);            
                
 }
 

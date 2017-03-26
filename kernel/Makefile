@@ -3,7 +3,7 @@ HOSTARCH:=$(shell ../target-triplet-to-arch.sh $(HOST))
 
 CFLAGS?=-O2 -g
 CPPFLAGS?=
-LDFLAGS?=
+LDFLAGS?= -Wl,-Map,kernel.map
 LIBS?=
 
 DESTDIR?=
@@ -61,7 +61,7 @@ elco-os.kernel: $(OBJ_LINK_LIST) $(ARCHDIR)/linker.ld
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 
 clean:
-	rm -f elco-os.kernel $(OBJS) $(ALL_OUR_OBJS) *.o */*.o */*/*.o
+	rm -f elco-os.kernel kernel.map $(OBJS) $(ALL_OUR_OBJS) *.o */*.o */*/*.o
 
 install: install-headers install-kernel
 

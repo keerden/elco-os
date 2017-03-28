@@ -35,3 +35,4 @@ sysroot
 
 # Debug files
 *.dSYM/
+*.map

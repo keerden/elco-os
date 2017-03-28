@@ -1,5 +1,5 @@
-#ifndef _KERNEL_INTR_VECT_H
-#define _KERNEL_INTR_VECT_H
+#ifndef _I386_INTR_VECT_H
+#define _I386_INTR_VECT_H
 
 extern void isr0 ();
 extern void isr1 ();
@@ -34,4 +34,20 @@ extern void isr29();
 extern void isr30();
 extern void isr31(); 
 
+extern void irq0 ();
+extern void irq1 ();
+extern void irq2 ();
+extern void irq3 ();
+extern void irq4 ();
+extern void irq5 ();
+extern void irq6 ();
+extern void irq7 ();
+extern void irq8 ();
+extern void irq9 ();
+extern void irq10();
+extern void irq11();
+extern void irq12();
+extern void irq13();
+extern void irq14();
+extern void irq15();
 #endif

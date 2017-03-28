@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <kernel/vga.h>
+#include <i386/vga.h>
 
 size_t terminal_row;
 size_t terminal_column;
@@ -28,7 +28,7 @@ void terminal_initialize(void)
 
 void terminal_scroll(bool force)
 {
-	//check if need to scroll
+	//check if we need to scroll
 	if(terminal_row < VGA_HEIGHT )
 	{
 		if(!force)

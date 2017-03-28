@@ -1,5 +1,5 @@
-#ifndef _KERNEL_DESCRIPTORS_H
-#define __KERNEL_DESCRIPTORS_H
+#ifndef _I386_DESCRIPTORS_H
+#define _I386_DESCRIPTORS_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -20,7 +20,7 @@
 #define GDT_FLAG_GRAN4K 0x8
 #define GDT_FLAG_32BIT  0x4
 
-#define IDT_SIZE 5
+#define IDT_SIZE 256
 
 #define IDT_ATR_TYPE_32TSG      0x05
 #define IDT_ATR_TYPE_16IG       0x06

@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <kernel/descriptors.h>
-#include <kernel/intr_vect.h>
+#include <i386/descriptors.h>
+#include <i386/intr_vect.h>
 
 
 
@@ -104,6 +104,24 @@ void idt_initialize() {
     idt_set_entry(29, (uint32_t) isr29, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
     idt_set_entry(30, (uint32_t) isr30, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
     idt_set_entry(31, (uint32_t) isr31, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+
+    idt_set_entry(32, (uint32_t) irq0, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(33, (uint32_t) irq1, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(34, (uint32_t) irq2, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(35, (uint32_t) irq3, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(36, (uint32_t) irq4, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(37, (uint32_t) irq5, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(38, (uint32_t) irq6, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(39, (uint32_t) irq7, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(40, (uint32_t) irq8, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(41, (uint32_t) irq9, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(42, (uint32_t) irq10, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(43, (uint32_t) irq11, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(44, (uint32_t) irq12, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(45, (uint32_t) irq13, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(46, (uint32_t) irq14, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+    idt_set_entry(47, (uint32_t) irq15, 0x0008, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
+
 
     idt_flush(&idt_p);            
                

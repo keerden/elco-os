@@ -19,6 +19,16 @@ isr\num :
 
 .endm
 
+# macro for an IRQ that is called by the PIC
+.macro IRQ num
+.global irq\num
+irq\num :
+    cli
+    push $0
+    push $\num
+    jmp irq_common_stub
+.endm
+
 # start of the intvect section
 .section .intvect
 
@@ -54,9 +64,26 @@ ISR_NOERRCODE 28
 ISR_NOERRCODE 29
 ISR_NOERRCODE 30
 ISR_NOERRCODE 31
+IRQ 0
+IRQ 1
+IRQ 2
+IRQ 3
+IRQ 4
+IRQ 5
+IRQ 6
+IRQ 7
+IRQ 8
+IRQ 9
+IRQ 10
+IRQ 11
+IRQ 12
+IRQ 13
+IRQ 14
+IRQ 15
 
 
-.extern isr_handler
+
+.extern exception_handler
 
 # This is our common ISR stub. It saves the processor state, sets
 # up for kernel mode segments, calls the C-level fault handler,
@@ -76,8 +103,7 @@ isr_common_stub:
     mov %esp, %eax
     push %eax               # Push us the stack
 
-    mov $isr_handler, %eax
-    call *%eax               # A special call, preserves the 'eip' register
+    call exception_handler
 
     pop %eax
     pop %gs
@@ -88,6 +114,35 @@ isr_common_stub:
     add  $8, %esp     # Cleans up the pushed error code and pushed ISR number
     iret              # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
 
+.extern irq_handler
 
+# This is our common IRQ stub. It saves the processor state, sets
+# up for kernel mode segments, calls the C-level irq handler,
+# and finally restores the stack frame.
+irq_common_stub:
+    pusha                   # Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
+    push %ds                    
+    push %es
+    push %fs
+    push %gs
+
+    mov $0x10, %ax          # load the kernel data segment descriptor
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+    mov %esp, %eax
+    push %eax               # Push us the stack
+
+    call irq_handler 
+  
+    pop %eax
+    pop %gs
+    pop %fs
+    pop %es
+    pop %ds
+    popa
+    add  $8, %esp     # Cleans up the pushed error code and pushed ISR number
+    iret              # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
 
 

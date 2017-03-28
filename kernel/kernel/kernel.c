@@ -3,23 +3,28 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <kernel/tty.h>
-#include <kernel/descriptors.h>
 #include <kernel.h>
+#include <kernel/tty.h>
+#include <i386.h>
+
+
+#include <i386/interrupts.h>
 
 void kernel_early(void)
 {
-	terminal_initialize();
-	descriptors_initialize();
+	i386_init();
 }
 
+extern uint32_t tick;
 void kernel_main(void)
 {
+	int a = 0;
  	terminal_print_logo();
 	kdebug("testing\n");
-	int a = 2;
-	a--;
-	kdebug("%d\n", a / (a-1));
+
+
+	while(1);
+
 }
 
 void kerror(const char* error) {

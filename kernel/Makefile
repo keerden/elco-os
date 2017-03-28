@@ -12,7 +12,7 @@ EXEC_PREFIX?=$(PREFIX)
 BOOTDIR?=$(EXEC_PREFIX)/boot
 INCLUDEDIR?=$(PREFIX)/include
 
-CFLAGS:=$(CFLAGS) -ffreestanding -fbuiltin -Wall -Wextra
+CFLAGS:=$(CFLAGS) -ffreestanding -fbuiltin -Wall -Wextra 
 CPPFLAGS:=$(CPPFLAGS) -D__is_elco_os_kernel -D_KERNEL_DEBUG -Iinclude
 LDFLAGS:=$(LDFLAGS)
 LIBS:=$(LIBS) -nostdlib -lk -lgcc

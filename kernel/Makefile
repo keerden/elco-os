@@ -18,8 +18,9 @@ LDFLAGS:=$(LDFLAGS)
 LIBS:=$(LIBS) -nostdlib -lk -lgcc
 
 ARCHDIR:=arch/$(HOSTARCH)
-
 include $(ARCHDIR)/make.config
+KERNELDIR:=kernel
+include $(KERNELDIR)/make.config
 
 CFLAGS:=$(CFLAGS) $(KERNEL_ARCH_CFLAGS)
 CPPFLAGS:=$(CPPFLAGS) $(KERNEL_ARCH_CPPFLAGS)
@@ -28,7 +29,7 @@ LIBS:=$(LIBS) $(KERNEL_ARCH_LIBS)
 
 OBJS:=\
 $(KERNEL_ARCH_OBJS) \
-kernel/kernel.o \
+$(KERNEL_OBJS) \
 
 CRTI_OBJ:=$(ARCHDIR)/crti.o
 CRTBEGIN_OBJ:=$(shell $(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=crtbegin.o)

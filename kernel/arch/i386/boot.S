@@ -1,15 +1,19 @@
+#define ASM_FILE        1
+#include <multiboot.h>
+
 # Declare constants used for creating a multiboot header.
-.set ALIGN,    1<<0             # align loaded modules on page boundaries
-.set MEMINFO,  1<<1             # provide memory map
-.set FLAGS,    ALIGN | MEMINFO  # this is the Multiboot 'flag' field
-.set MAGIC,    0x1BADB002       # 'magic number' lets bootloader find the header
-.set CHECKSUM, -(MAGIC + FLAGS) # checksum of above, to prove we are multiboot
+.set MULTIBOOT_HEADER_FLAGS,  (MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO)
+# checksum of above, to prove we are multiboot
+.set CHECKSUM, -(MULTIBOOT_HEADER_FLAGS + MULTIBOOT_HEADER_MAGIC) 
 
 # Declare a header as in the Multiboot Standard.
 .section .multiboot
+.global _start_of_kernel
+_start_of_kernel:
+
 .align 4
-.long MAGIC
-.long FLAGS
+.long MULTIBOOT_HEADER_MAGIC
+.long MULTIBOOT_HEADER_FLAGS
 .long CHECKSUM
 
 # Reserve a stack for the initial thread.
@@ -24,6 +28,15 @@ stack_top:
 .type _start, @function
 _start:
 	movl $stack_top, %esp
+
+	# reset EFLAGS
+	pushl   $0
+    popf
+
+	# Push the pointer to the Multiboot information structure.
+	pushl   %ebx
+	# Push the magic value.
+	pushl   %eax
 
 	# Initialize the core kernel before running the global constructors.
 	call kernel_early
@@ -40,5 +53,8 @@ _start:
 	hlt
 	jmp .Lhang
 .size _start, . - _start
+.section .kernel_end
+.global _end_of_kernel
+_end_of_kernel:
 
 

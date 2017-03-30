@@ -6,17 +6,12 @@
 #include <kernel.h>
 
 uint32_t tick = 0;
-uint32_t tick2 = 0;
+
 
 static void timer_callback(intr_stack_t *r)
 {
+    tick++;
 
-    tick2++;
-    if(tick2 % 1000 == 0){
-        tick++;
-        kdebug("1 second passed\n");
-
-    }
 
 }
 

@@ -2,4 +2,4 @@
 set -e
 . ./iso.sh
 
-qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom elco-os.iso
+qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom elco-os.iso -m 128M

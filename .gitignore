@@ -1,6 +1,6 @@
 *.iso
-isodir
-sysroot
+build/
+*.d
 
 
 # Object files

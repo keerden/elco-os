@@ -1,88 +1,97 @@
-HOST?=$(shell ../default-host.sh)
-HOSTARCH:=$(shell ../target-triplet-to-arch.sh $(HOST))
+# subdirs to scan for files
+PROJDIRS := stdio stdlib string
 
-CFLAGS?=-O2 -g
-CPPFLAGS?=
-LDFLAGS?=
-LIBS?=
+# name of binary
+BINARY := libc.a
 
-DESTDIR?=
-PREFIX?=/usr/local
-EXEC_PREFIX?=$(PREFIX)
-INCLUDEDIR?=$(PREFIX)/include
-LIBDIR?=$(EXEC_PREFIX)/lib
+#include config if not defined
 
-CFLAGS:=$(CFLAGS) -Wall -Wextra
-CPPFLAGS:=$(CPPFLAGS) -D__is_elco_os_libc -Iinclude
-LIBK_CFLAGS:=$(CFLAGS) -ffreestanding -fbuiltin
-LIBK_CPPFLAGS:=$(CPPFLAGS) -D__is_elco_os_kernel
+ifndef CONFIG
+	CONFIG ?= ../../make.config
+	include $(CONFIG)
+endif
 
-ARCHDIR:=arch/$(HOSTARCH)
 
-include $(ARCHDIR)/make.config
+# automatically scan for source files
+CFILES := $(shell find $(PROJDIRS) -type f -name "*.c")
+ASMFILES := $(shell find $(PROJDIRS) -type f -name "*.S")
+HDRFILES := $(shell find $(PROJDIRS) -type f -name "*.h")
 
-CFLAGS:=$(CFLAGS) $(ARCH_CFLAGS)
-CPPFLAGS:=$(CPPFLAGS) $(ARCH_CPPFLAGS)
-LIBK_CFLAGS:=$(LIBK_CFLAGS) $(KERNEL_ARCH_CFLAGS)
-LIBK_CPPFLAGS:=$(LIBK_CPPFLAGS) $(KERNEL_ARCH_CPPFLAGS)
+# make a list of object files
+COBJFILES := $(patsubst %.c,%.o,$(CFILES))
+ASMOBJFILES := $(patsubst %.S,%.o,$(ASMFILES))
 
-FREEOBJS:=\
-$(ARCH_FREEOBJS) \
-stdio/printf.o \
-stdio/putchar.o \
-stdio/puts.o \
-stdlib/abort.o \
-string/memcmp.o \
-string/memcpy.o \
-string/memmove.o \
-string/memset.o \
-string/strlen.o \
+OBJFILES := $(COBJFILES) $(ASMOBJFILES)
 
-HOSTEDOBJS:=\
-$(ARCH_HOSTEDOBJS) \
+# make a list of dependency files
+CDEPFILES    := $(patsubst %.c,%.d,$(CFILES))
+ASMDEPFILES    := $(patsubst %.S,%.d,$(ASMFILES))
 
-OBJS:=\
-$(FREEOBJS) \
-$(HOSTEDOBJS) \
+DEPFILES := $(CDEPFILES) $(ASMDEPFILES)
 
-LIBK_OBJS:=$(FREEOBJS:.o=.libk.o)
+ALLFILES := $(CFILES) $(ASMFILES) $(HDRFILES)
 
-BINARIES=libc.a libg.a libk.a
+# determine the systemroot dir to place the output
+SYSROOT ?= ../../build/sysroot
 
-all: $(BINARIES)
+# determine the dir to place the lib
+LIBDIR ?= $(SYSROOT)/usr/lib
 
-.PHONY: all clean install install-headers install-libs
+# directory containing the source of the (new to compile) system-wide headerfiles 
+NEWINCDIR ?= include
 
-libc.a: $(OBJS)
-	$(AR) rcs $@ $(OBJS)
 
-libg.a:
-	$(AR) rcs $@
+# location within sysroot that contains all system-wide header files that already exist
+HEADERDIR ?= $(SYSROOT)/usr/include
 
-libk.a: $(LIBK_OBJS)
-	$(AR) rcs $@ $(LIBK_OBJS)
+HDRFILES := $(shell find $(NEWINCDIR) -type f -name "*.h")
+INSTALLHDRFILES := $(patsubst $(NEWINCDIR)/%, $(HEADERDIR)/%,$(HDRFILES))
 
-%.o: %.c
-	$(CC) -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)
 
-%.o: %.S
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+# enabled compiler warnings
+WARNINGS := -Wall -Wextra 
+#-pedantic -Wshadow -Wpointer-arith -Wcast-align \
+           # -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations \
+          #  -Wredundant-decls -Wnested-externs -Winline -Wno-long-long \
+          #  -Wuninitialized -Wconversion -Wstrict-prototypes
 
-%.libk.o: %.c
-	$(CC) -c $< -o $@ -std=gnu11 $(LIBK_CFLAGS) $(LIBK_CPPFLAGS)
+#definitions
+DEFS := 
+#include paths
+CINC := --sysroot=$(SYSROOT) -isystem $(HEADERDIR) -I $(NEWINCDIR)
 
-%.libk.o: %.S
-	$(CC) -c $< -o $@ $(LIBK_CFLAGS) $(LIBK_CPPFLAGS)
+CFLAGS :=  $(CFLAGS) $(CINC)   $(WARNINGS) $(DEFS) -O2 -g  -ffreestanding -fbuiltin -std=gnu11
 
-clean:
-	rm -f $(BINARIES) $(OBJS) $(LIBK_OBJS) *.o */*.o */*/*.o
+all: $(BINARY)
 
-install: install-headers install-libs
+clean: 
+	@rm -f $(OBJFILES) $(DEPFILES) *.o */*.o */*/*.o
 
-install-headers:
-	mkdir -p $(DESTDIR)$(INCLUDEDIR)
-	cp -RTv include $(DESTDIR)$(INCLUDEDIR)
+clean-all: clean
+	@rm -f $(BINARY)
 
-install-libs: $(BINARIES)
-	mkdir -p $(DESTDIR)$(LIBDIR)
-	cp $(BINARIES) $(DESTDIR)$(LIBDIR)
+$(BINARY): $(OBJFILES)
+	@$(AR) rcs $@ $(OBJFILES)
+
+%.o: %.c Makefile
+	@$(CC) $(CFLAGS) -MD -MP -c $< -o $@
+
+
+%.o: %.S Makefile
+	@$(CC) $(CFLAGS) -MD -MP -c $< -o $@ 
+
+
+install-headers: $(INSTALLHDRFILES)
+	
+$(INSTALLHDRFILES) : $(HDRFILES) 
+	test -d $(shell dirname $@) || mkdir -p $(shell dirname $@) && cp -v $< $@
+
+
+install: $(BINARY)
+	@mkdir -p $(LIBDIR)
+	@cp  $(BINARY) $(LIBDIR)
+	
+-include $(DEPFILES)
+
+
+.PHONY: all clean clean-all install-headers  install

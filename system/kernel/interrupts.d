@@ -1,1 +1,0 @@
-interrupts.o: interrupts.c

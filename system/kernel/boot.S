@@ -1,5 +1,9 @@
 #define ASM_FILE        1
+#include <elco-os/config.h>
 #include <kernel/multiboot.h>
+
+#include "config.h"
+#include "const.h"  
 
 # Declare constants used for creating a multiboot header.
 .set MULTIBOOT_HEADER_FLAGS,  (MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO)
@@ -8,25 +12,58 @@
 
 # Declare a header as in the Multiboot Standard.
 .section .multiboot
-.global _start_of_kernel
-_start_of_kernel:
 
 .align 4
 .long MULTIBOOT_HEADER_MAGIC
 .long MULTIBOOT_HEADER_FLAGS
 .long CHECKSUM
 
-# Reserve a stack for the initial thread.
-.section .bootstrap_stack, "aw", @nobits
-stack_bottom:
-.skip 16384 # 16 KiB
-stack_top:
-
+.section .data
+.align 0x1000
+boot_page_directory:
+	# todo: remove 'magic' numbers
+    # This page directory entry identity-maps the first 4MB of the 32-bit physical address space.
+    # All bits are clear except the following:
+    # bit 7: PS The kernel page is 4MB.
+    # bit 1: RW The kernel page is read/write.
+    # bit 0: P  The kernel page is present.
+    # This entry must be here -- otherwise the kernel will crash immediately after paging is
+    # enabled because it can't fetch the next instruction! It's ok to unmap this page later.
+    .int 0x00000083
+    .rept (KERNEL_PD_NUMBER - 1) # unmapped Pages before kernel space.
+		.int 0 
+	.endr
+    # This page directory entry defines a 4MB page containing the kernel.
+    .int 0x00000083
+	.rept (1024 - KERNEL_PD_NUMBER - 1) # unmapped Pages after kernel space.
+		.int 0 
+	.endr
+ 
 # The kernel entry point.
 .section .text
 .global _start
 .type _start, @function
 _start:
+	# Set cr3 to the address of the boot_page_directory.
+	movl $(kvirt_to_phys(boot_page_directory)), %ecx
+	movl %ecx, %cr3
+	
+	# Set PSE bit in CR4 to enable 4MB pages.
+    movl %cr4, %ecx
+    orl $0x00000010, %ecx                          
+    movl %ecx, %cr4
+
+	# Enable paging and the write-protect bit.
+	movl %cr0, %ecx
+	orl $0x80010000, %ecx
+	movl %ecx, %cr0
+
+	# Jump to higher half with an absolute jump. 
+	lea higher_half, %ecx
+	jmp *%ecx
+
+
+	higher_half:
 	movl $stack_top, %esp
 
 	# reset EFLAGS
@@ -53,8 +90,16 @@ _start:
 	hlt
 	jmp .Lhang
 .size _start, . - _start
-.section .kernel_end
-.global _end_of_kernel
-_end_of_kernel:
+
+
+
+
+
+# Reserve a stack for the initial thread.
+.section .bootstrap_stack, "aw", @nobits
+stack_bottom:
+.skip KERNEL_STACK_SIZE 
+stack_top:
+
 
 

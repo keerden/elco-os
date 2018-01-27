@@ -60,7 +60,7 @@ iso: all
 	@grub-mkrescue -o $(ISOFILE) $(ISODIR)
 
 qemu: iso
-	qemu-system-i386 -cdrom $(ISOFILE) -m 1280M
+	qemu-system-i386 -cdrom $(ISOFILE) -m 128M
 
 bochs: iso
 	bochs

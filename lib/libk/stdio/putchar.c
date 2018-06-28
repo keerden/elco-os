@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #if defined(__is_elco_os_kernel)
-#include <kernel/tty.h>
+#include <elco-os/kernel/tty.h>
 #endif
 
 int putchar(int ic)

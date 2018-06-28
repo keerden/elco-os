@@ -1,9 +1,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <kernel/kernel.h>
-#include <kernel/i386/interrupts.h>
-#include <kernel/i386/pic.h>
+#include <elco-os/kernel/kernel.h>
+#include "i386/interrupts.h"
+#include "i386/pic.h"
 
 
 

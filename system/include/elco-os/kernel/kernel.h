@@ -1,7 +1,7 @@
 #ifndef _KERNEL_H
 #define _KERNEL_H
 
-#include <kernel/tty.h>
+#include <elco-os/kernel/tty.h>
 #include <stdio.h>
 
 

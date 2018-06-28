@@ -2,7 +2,7 @@
 #define _KERNEL_physmem_H
 
 #include <stdint.h>
-#include <kernel/multiboot.h>
+#include <elco-os/kernel/multiboot.h>
 
 
 //! 8 blocks per byte

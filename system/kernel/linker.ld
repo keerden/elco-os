@@ -13,6 +13,7 @@ SECTIONS
 	. = 0xC0100000;
 	/* Add a symbol that indicates the start address of the kernel. */
 	_start_of_kernel = .;
+	_start_of_kernel_phys = . - 0xC0000000;
 
 	/* First put the multiboot header, as it is required to be put very early
 	   early in the image or the bootloader won't recognize the file format.
@@ -44,7 +45,8 @@ SECTIONS
 		*(.bootstrap_stack)
 	}
 	/* Add a symbol that indicates the end address of the kernel. */
-	_end_of_kernel = .;
+	_end_of_kernel = ALIGN (4K);
+	_end_of_kernel_phys = ALIGN (4K) - 0xC0000000;
 	
 
 	/* The compiler may produce other sections, put them in the proper place in

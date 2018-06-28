@@ -2,7 +2,11 @@
 
 Custom made kernel for x86.
 
-made with help of some tutorials and a lot of information from the osdev wiki:
+This project is a toy-project and is not expected to be finished soon..
+
+
+
+elco-os is made with help of some tutorials and lots of information from the osdev wiki:
 
 http://wiki.osdev.org
 

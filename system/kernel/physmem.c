@@ -1,8 +1,8 @@
-#include <stdint.h>
-#include <stdlib.h>
+#include <kstdint.h>
+#include <kstdlib.h>
 #include <elco-os/kernel/multiboot.h>
 #include <elco-os/kernel/kernel.h>
-#include <string.h>
+#include <kstring.h>
 #include "physmem.h"
 
 static size_t physmem_size;             /* size of memory from 0x00 to the end of the last available block*/
@@ -156,7 +156,7 @@ void physmem_init(multiboot_info_t *bootinfo,  physical_addr krnl_strt, physical
     if(!(bootinfo->flags & MULTIBOOT_INFO_MEM_MAP && bootinfo->flags & MULTIBOOT_INFO_MEMORY))
     {
         kerror("No memory information specified by bootloader\n");
-        abort();
+        kabort();
         return;
     }
     mmap_length = bootinfo->mmap_length;
@@ -223,7 +223,7 @@ void physmem_init(multiboot_info_t *bootinfo,  physical_addr krnl_strt, physical
 }
 
 
-void* kmalloc() {
+/*void* kmalloc() {
 
     int block =  physmem_first_free ();
 
@@ -245,7 +245,7 @@ void kfree(void* p) {
 
 	physmem_block_used--;
 }
-
+*/
 /*********************************************************
 * physmem_set_region
 **********************************************************

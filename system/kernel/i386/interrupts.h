@@ -1,8 +1,8 @@
 #ifndef _I386_INTERRUPTS_H
 #define _I386_INTERRUPTS_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <kstddef.h>
+#include <kstdint.h>
 
 
 #define EXCEPTION_COUNT 32

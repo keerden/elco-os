@@ -32,8 +32,8 @@ INSTALLHDRFILES := $(patsubst $(NEWINCDIR)/%, $(HEADERDIR)/%,$(HDRFILES))
 all: install-headers install
 
 
-$(INSTALLHDRFILES) : $(HDRFILES) 
-	 test -d $(shell dirname $@) || mkdir -p $(shell dirname $@) && cp -v $< $@
+$(INSTALLHDRFILES) :  $(HEADERDIR)/% : $(NEWINCDIR)/%
+	 @test -d $(shell dirname $@) || mkdir -p $(shell dirname $@) && cp -v $< $@
 
 test-headers: $(INSTALLHDRFILES)
 test-2:

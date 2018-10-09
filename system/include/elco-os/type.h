@@ -1,7 +1,7 @@
 #ifndef __TYPE_H
 #define __TYPE_H
 
-#include <stdint.h>
+#include <kstdint.h>
 
 typedef uint32_t vir_clicks; 	/*  virtual addr/length in clicks */
 typedef uint32_t vir_bytes;	    /* virtual addr/length in bytes */

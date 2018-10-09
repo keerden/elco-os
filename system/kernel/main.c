@@ -1,14 +1,14 @@
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <kstddef.h>
+#include <kstdint.h>
+#include <kstring.h>
+#include <kstdio.h>
+#include <kstdlib.h>
 
 #include <elco-os/kernel/kernel.h>
 #include <elco-os/kernel/tty.h>
 #include <elco-os/kernel/multiboot.h>
 #include "physmem.h"
-#include "i386.h"
+#include "i386/i386.h"
 #include "i386/interrupts.h"
 
 extern pointer_t _start_of_kernel;
@@ -21,7 +21,7 @@ void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 	i386_init();
 	if(magic != MULTIBOOT_BOOTLOADER_MAGIC){
 		kerror("Elco-OS should be loaded with a valid multiboot bootloader!\n");
-		abort();
+		kabort();
 	}
 	
 	kdebug("start virt: %p phys: %p end virt: %p phys: %p \n", _start_of_kernel, _start_of_kernel_phys, _end_of_kernel, _end_of_kernel_phys);

@@ -1,7 +1,7 @@
 #ifndef _I386_VGA_H
 #define _I386_VGA_H
 
-#include <stdint.h>
+#include <kstdint.h>
 
 #define VGA_WIDTH  80
 #define VGA_HEIGHT  25

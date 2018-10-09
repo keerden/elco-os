@@ -1,8 +1,8 @@
 #ifndef _I386_PIC_H
 #define _I386_PIC_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <kstddef.h>
+#include <kstdint.h>
 
 #define IRQ0_VECT 32
 

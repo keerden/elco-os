@@ -1,8 +1,8 @@
 #ifndef _I386_DESCRIPTORS_H
 #define _I386_DESCRIPTORS_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <kstddef.h>
+#include <kstdint.h>
 
 #define GDT_SIZE 5
 

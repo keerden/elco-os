@@ -1,5 +1,5 @@
 # subdirs to scan for files
-PROJDIRS := libc libk libgcc
+PROJDIRS := libk libgcc
 
 #include config if not defined
 

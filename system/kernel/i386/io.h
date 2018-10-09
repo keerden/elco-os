@@ -1,8 +1,8 @@
 #ifndef _I386_IO_H
 #define _I386_IO_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <kstddef.h>
+#include <kstdint.h>
 
 inline uint8_t inportb (uint16_t _port)
 {

@@ -1,7 +1,7 @@
 #ifndef _KERNEL_physmem_H
 #define _KERNEL_physmem_H
 
-#include <stdint.h>
+#include <kstdint.h>
 #include <elco-os/kernel/multiboot.h>
 
 
@@ -24,7 +24,7 @@ typedef	const char pointer_t[];
 void physmem_init(multiboot_info_t *bootinfo,  physical_addr krnl_strt, physical_addr krnl_end); 
 int physmem_set_region (physical_addr base, size_t size);
 int physmem_unset_region (physical_addr base, size_t size);
-void* kmalloc(void);
+//void* kmalloc(void);
 
 
 #endif

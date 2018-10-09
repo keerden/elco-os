@@ -34,8 +34,6 @@ ASMDEPFILES    := $(patsubst %.S,%.d,$(ASMFILES))
 
 DEPFILES := $(CDEPFILES) $(ASMDEPFILES)
 
-ALLFILES := $(CFILES) $(ASMFILES) $(HDRFILES) $(AUXFILES)
-
 # determine the systemroot dir to place the output
 SYSROOT ?= ../../build/sysroot
 
@@ -99,8 +97,8 @@ $(KERNEL_EXEC) :  $(OBJFILES) $(LINKSCRIPT) Makefile
 
 install-headers: $(INSTALLHDRFILES)
 	
-$(INSTALLHDRFILES) : $(HDRFILES) 
-	test -d $(shell dirname $@) || mkdir -p $(shell dirname $@) && cp -v $< $@
+$(INSTALLHDRFILES) :  $(HEADERDIR)$(KERNEL_INCDIR)/% : $(NEWINCDIR)$(KERNEL_INCDIR)/%
+	@test -d $(shell dirname $@) || mkdir -p $(shell dirname $@) && cp -v $< $@
 
 install: $(KERNEL_EXEC)
 	@mkdir -p $(BOOTDIR)

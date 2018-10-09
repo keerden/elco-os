@@ -1,5 +1,5 @@
-#include <stddef.h>
-#include <stdint.h>
+#include <kstddef.h>
+#include <kstdint.h>
 
 #include <elco-os/kernel/kernel.h>
 

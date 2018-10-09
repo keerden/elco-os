@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "kernel.h": "c",
+        "tty.h": "c",
+        "physmem.h": "c",
+        "callback.h": "c",
+        "kstdio.h": "c",
+        "kstdint.h": "c",
+        "interrupts.h": "c",
+        "kstring.h": "c",
+        "i386.h": "c",
+        "io.h": "c"
+    }
+}

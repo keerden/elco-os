@@ -1,8 +1,9 @@
 #define ASM_FILE        1
 #include <elco-os/config.h>
+#include <elco-os/kernel/multiboot.h>
+
 #include "config.h"
 #include "const.h"  
-#include "multiboot.h"
 
 # Declare constants used for creating a multiboot header.
 .set MULTIBOOT_HEADER_FLAGS,  (MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO)
@@ -17,69 +18,39 @@
 .long MULTIBOOT_HEADER_FLAGS
 .long CHECKSUM
 
-
-
-
-.section .bss, "aw", @nobits
-	.align 4096
+.section .bss
+.align 0x1000
 .global boot_page_directory
 boot_page_directory:
-	.skip 4096
-.global boot_page_table1
-boot_page_table1:
-	.skip 4096
-.global pstack_page_table
-pstack_page_table:
-	.skip 4096
-# Further page tables may be required if the kernel grows beyond 3 MiB.
+	# TODO: remove 'magic' numbers
+    # This page directory entry identity-maps the first 4MB of the 32-bit physical address space.
+    # All bits are clear except the following:
+    # bit 7: PS The kernel page is 4MB.
+    # bit 1: RW The kernel page is read/write.
+    # bit 0: P  The kernel page is present.
+    # This entry must be here -- otherwise the kernel will crash immediately after paging is
+    # enabled because it can't fetch the next instruction! It's ok to unmap this page later.
+	.set                address,0
+    # .int 0x00000083
+    # .rept (KERNEL_PD_NUMBER - 1) # unmapped Pages before kernel space.
+	#	.int 0 
+	 .rept (KERNEL_PD_NUMBER) # ID mapped Pages before kernel space.
+		.int (address + 0x00000083) 
+		.set address, address + 4096 * 1024
+	.endr
 
+    # This page directory entry defines a 4MB page containing the kernel.
+    .int 0x00000083
+	.rept (1024 - KERNEL_PD_NUMBER - 1) # unmapped Pages after kernel space.
+		.int 0 
+	.endr
+ 
 # The kernel entry point.
 .section .text
 .global _start
 .type _start, @function
 _start:
-	# Physical address of boot_page_table1.
-	movl $(kvirt_to_phys(boot_page_table1)), %edi
-	
-	movl $0, %esi		# First address to map is address 0.
-	movl $1024, %ecx	# 1024 pages to map.
-
-loop1:
-	# map everything before the kernel.
-	cmpl $(kvirt_to_phys(_end_of_kernel)), %esi
-	jge set_PDE
-
-	# Map physical address as "present (bit0), writable (bit1)". Note that this maps
-	# .text and .rodata as writable. Mind security and map them as non-writable.
 	# TODO: permissions for pages of different kernel sections
-	movl %esi, %edx
-	orl $0x003, %edx
-	movl %edx, (%edi)
-	addl $4096, %esi	# step 4kb.
-	addl $4, %edi		# next entry.
-	loop loop1
-set_PDE:
-
-	# idmap everything before virtual kernel space, using 4mb pages
-	movl $(kvirt_to_phys(boot_page_directory)), %edi
-	movl $0, %esi		# First address to map is address 0.
-	movl $(KERNEL_PD_NUMBER), %ecx	
-
-idmap:
-	movl %esi, %edx
-	orl $0x00000083, %edx	# present (bit0), writable (bit1), 4mb (bit7)
-	movl %edx, (%edi)
-	addl $0x400000, %esi	# add 4Mb.
-	addl $4, %edi			# next entry.
-	loop idmap
-
-	movl $(kvirt_to_phys(boot_page_table1) + 0x003), (%edi)	# map kernel ptable, set present (bit0), writable (bit1)
-	# map pstack ptable, set present (bit0), writable (bit1)
-	movl $(kvirt_to_phys(pstack_page_table) + 0x003), (kvirt_to_phys(boot_page_directory) + 1022 * 4)	
-	# recursive PDE, set present (bit0), writable (bit1)
-	movl $(kvirt_to_phys(boot_page_directory) + 0x003), (kvirt_to_phys(boot_page_directory) + 1023 * 4)
-
-
 	# Set cr3 to the address of the boot_page_directory.
 	movl $(kvirt_to_phys(boot_page_directory)), %ecx
 	movl %ecx, %cr3

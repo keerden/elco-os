@@ -1,5 +1,7 @@
 # list of non-source files to be part of distribution
 AUXFILES := Makefile
+# subdirs to scan for files
+PROJDIRS := .
 
 # name of executable
 KERNEL_EXEC ?= elco-os.kernel
@@ -14,12 +16,26 @@ ifndef CONFIG
 	include $(CONFIG)
 endif
 
+
+# automatically scan for source files
+CFILES := $(shell find $(PROJDIRS) -type f -name "*.c")
+ASMFILES := $(shell find $(PROJDIRS) -type f -name "*.S")
+
+
+# make a list of object files
+COBJFILES := $(patsubst %.c,%.o,$(CFILES))
+ASMOBJFILES := $(patsubst %.S,%.o,$(ASMFILES))
+
+OBJFILES := $(COBJFILES) $(ASMOBJFILES)
+
+# make a list of dependency files
+CDEPFILES    := $(patsubst %.c,%.d,$(CFILES))
+ASMDEPFILES    := $(patsubst %.S,%.d,$(ASMFILES))
+
+DEPFILES := $(CDEPFILES) $(ASMDEPFILES)
+
 # determine the systemroot dir to place the output
 SYSROOT ?= ../../build/sysroot
-
-OBJDIR := ../../build/objects/system/kernel
-SRCDIR := .
-
 
 # determine the boot dir to place the kernel
 BOOTDIR ?= $(SYSROOT)/boot
@@ -37,42 +53,13 @@ HDRFILES := $(shell find $(NEWINCDIR)$(KERNEL_INCDIR) -type f -name "*.h")
 INSTALLHDRFILES := $(patsubst $(NEWINCDIR)$(KERNEL_INCDIR)/%, $(HEADERDIR)$(KERNEL_INCDIR)/%,$(HDRFILES))
 
 
-# automatically scan for source files
-CFILES := $(shell find $(SRCDIR) -type f -name "*.c")
-ASMFILES := $(shell find $(SRCDIR) -type f -name "*.S")
-
-COBJFILES := $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(CFILES:.c=.o))
-ASMOBJFILES := $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(ASMFILES:.S=.o))
-
-OBJFILES := $(COBJFILES) $(ASMOBJFILES)
-OBJDIRS := $(dir $(OBJFILES))
-
-# make a list of dependency files
-CDEPFILES := $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(CFILES:.c=.d))
-ASMDEPFILES  := $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(ASMFILES:.S=.d))
-
-DEPFILES := $(CDEPFILES) $(ASMDEPFILES)
-
-
-
-
 
 # enabled compiler warnings
-WARNINGS := -Wall -Wextra
-WARNINGS += -Wpointer-arith
-WARNINGS += -Wcast-align
-WARNINGS += -Wwrite-strings
-WARNINGS += -Wswitch-default
-WARNINGS += -Wunreachable-code
-WARNINGS += -Winit-self
-WARNINGS += -Wmissing-field-initializers
-WARNINGS += -Wno-unknown-pragmas
-WARNINGS += -Wstrict-prototypes
-WARNINGS += -Wundef
-WARNINGS += -Wold-style-definition 
-WARNINGS += -Wnested-externs
-WARNINGS += -Winline
-WARNINGS += -Wconversion  -Wstack-usage=8192
+WARNINGS := -Wall -Wextra 
+#-pedantic -Wshadow -Wpointer-arith -Wcast-align \
+           # -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations \
+          #  -Wredundant-decls -Wnested-externs -Winline -Wno-long-long \
+          #  -Wuninitialized -Wconversion -Wstrict-prototypes
 
 #definitions
 DEFS := -D__is_elco_os_kernel -D_KERNEL_DEBUG
@@ -88,7 +75,6 @@ LDFLAGS ?= -Wl,-Map,kernel.map
 # used libs
 LIBS := -nostdlib -lk -lgcc
 
-
 all: $(KERNEL_EXEC)
 
 clean: 
@@ -96,21 +82,16 @@ clean:
 
 clean-all: clean
 	@rm -f $(KERNEL_EXEC)
-	@rm -rf $(OBJDIR)
 
 $(KERNEL_EXEC) :  $(OBJFILES) $(LINKSCRIPT) Makefile
 	$(CC) -T $(LINKSCRIPT) -o $@ $(CFLAGS) $(OBJFILES) $(LDFLAGS) $(LIBS)
 
 
-# %.o: %.c Makefile
-$(OBJDIR)/%.o: $(SRCDIR)/%.c Makefile
-	@mkdir -p $(@D)
+%.o: %.c Makefile
 	@$(CC) $(CFLAGS) -MD -MP -c $< -o $@
 
 
-#%.o: %.S Makefile
-$(OBJDIR)/%.o: $(SRCDIR)/%.S Makefile
-	@mkdir -p $(@D)
+%.o: %.S Makefile
 	@$(CC) $(CFLAGS) -MD -MP -c $< -o $@ 
 
 
@@ -127,7 +108,8 @@ install: $(KERNEL_EXEC)
 -include $(DEPFILES)
 
 
-.PHONY: all clean install-headers  install 
+.PHONY: all clean install-headers  install
+
 
 
 

@@ -12,8 +12,9 @@ export BOOTDIR := $(SYSROOT)/boot
 export KERNEL_EXEC := elco-os.kernel
 
 define GRUBCFG
+	set timeout=1
 	menuentry "elco-os" { 
-		multiboot /boot/$(KERNEL_EXEC) 
+		multiboot /boot/$(KERNEL_EXEC)
 	} 
 endef
 export GRUBCFG

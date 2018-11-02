@@ -39,6 +39,6 @@ static inline uint16_t make_vgaentry(char c, uint8_t color)
 	return c16 | color16 << 8;
 }
 
-static uint16_t* const VGA_MEMORY = (uint16_t*) 0xC00B8000;
+static uint16_t* const VGA_MEMORY = (uint16_t*) 0xB8000;
 
 #endif

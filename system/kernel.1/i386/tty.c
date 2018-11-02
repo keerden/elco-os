@@ -1,8 +1,9 @@
-#include "../kernel.h"
-
 #include <kstdbool.h>
+#include <kstddef.h>
+#include <kstdint.h>
 #include <kstring.h>
 #include <libk.h>
+#include <elco-os/kernel/tty.h>
 
 #include "vga.h"
 
@@ -113,17 +114,16 @@ void terminal_writestring(const char* data)
 void terminal_print_logo(void)
 {
 	char logo[800] = 
-		"                                                                                "
-		"             #### ##      ####    ####              ####     #####              "
-		"             ##   ##    ##      ##    ##          ##    ##  ##                  "
-		"             ###  ##    ##      ##    ##  ######  ##    ##   #####              "
-		"             ##   ##    ##      ##    ##          ##    ##       ##             "
-		"             #### ####    ####    ####              ####     #####              "
-		"                                                                                ";
+		"                                                            \n"
+		"   #### ##      ####    ####              ####     #####    \n"
+		"   ##   ##    ##      ##    ##          ##    ##  ##        \n"
+		"   ###  ##    ##      ##    ##  ######  ##    ##   #####    \n"
+		"   ##   ##    ##      ##    ##          ##    ##       ##   \n"
+		"   #### ####    ####    ####              ####     #####    \n"
+		"                                                            \n";
 	terminal_setcolor(make_color(COLOR_LIGHT_BROWN, COLOR_BLUE));
 	terminal_writestring(logo);
 	terminal_setcolor(make_color(COLOR_LIGHT_GREY, COLOR_BLACK));
-	terminal_putchar('\n');
 
 }
 

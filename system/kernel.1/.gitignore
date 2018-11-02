@@ -1,0 +1,5 @@
+*.o
+*.d
+*.kernel
+kernel.map
+.vscode

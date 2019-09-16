@@ -56,6 +56,7 @@ void kmalloc_init(void *heap_addr, size_t heap_size)
 
     kmstate.heap_start = top_chunk;
     kmstate.heap_size = heap_size - offset;
+    kmstate.initial_heap_size = kmstate.heap_size;
     kmstate.sbinmap = kmstate.tbinmap = 0;
     for (size_t i = 0; i < NSBINS; i++)
         kmstate.sbin[i] = NULL;
@@ -462,11 +463,10 @@ static void *split_top(size_t chunksize)
     kmchunk_ptr chunk = NULL;
     size_t split_size;
 
-    if (kmstate.topChunk == NULL || kmstate.topChunkSize < chunksize)
+    if (kmstate.topChunkSize < chunksize)
     {
         if (grow_top(chunksize - kmstate.topChunkSize))
             return NULL;
-        kmstate.topChunkSize = chunksize;
     }
 
     if (kmstate.topChunkSize - chunksize < MINCHUNKSIZE)
@@ -511,39 +511,63 @@ static inline binmap_t calc_leftbin(binmap_t index, binmap_t map)
 
 static void shrink_top(void)
 {
-    size_t amount;
+    size_t decrease, newsize;
     kmchunk_ptr dummy;
-    if (kmstate.heap_size > HEAP_SHRINK_MIN + HEAP_SHRINK_TRESHOLD && kmstate.topChunkSize > HEAP_SHRINK_TRESHOLD)
+
+    //check if we need to schrink
+    //shrink only when top chunk is larger than HEAP_SHRINK_TRESHOLD, but leave a top chunk of at least HEAP_SHRINK_TRESHOLD big
+    //dont schrink below initial heap size and align the heap size on boundaries (could be page sizes) defined by HEAP_SIZE_ALIGN.
+
+    if (kmstate.topChunkSize > HEAP_SHRINK_TRESHOLD && kmstate.heap_size > kmstate.initial_heap_size)
     {
-        if((kmstate.heap_size - kmstate.topChunkSize) >= HEAP_SHRINK_MIN)
-            amount = kmstate.topChunkSize;
-        else
-            amount = kmstate.heap_size - HEAP_SHRINK_MIN;
+        decrease = kmstate.topChunkSize - HEAP_SHRINK_TRESHOLD;
+        newsize = kmstate.heap_size - decrease;
+        if(newsize < kmstate.initial_heap_size)
+            newsize = kmstate.initial_heap_size;
 
-        if(amount > HALF_MAX_SIZE_T)        //prevent signed overflow
-            amount = HALF_MAX_SIZE_T;
+        //align heapsize
+        newsize = (newsize + (HEAP_SIZE_ALIGN - 1)) & ~(HEAP_SIZE_ALIGN - 1);
+        decrease = kmstate.heap_size - newsize;
 
-        if(ACTION_SBRK((int) -amount) != (void *) -1){
-            //heap has decreased. change top
-            kmstate.heap_size -= amount;
-            kmstate.topChunkSize -= amount;
-            if(kmstate.topChunkSize){
-                kmstate.topChunk->header = kmstate.topChunkSize | PINUSE;
-                dummy = NEXTCHUNK(kmstate.topChunk);
-                dummy->prev_foot = kmstate.topChunkSize;
-                dummy->header = 0;
-            } else {
-                kmstate.topChunk->header = 0;
+        if(decrease > 0){
+            if(decrease > HALF_MAX_SIZE_T)        //prevent signed overflow
+                decrease = HALF_MAX_SIZE_T & ~(HEAP_SIZE_ALIGN - 1);
+
+
+            if(ACTION_SBRK((int) -decrease) != (void *) -1){
+                //heap has decreased. change top
+                kmstate.heap_size -= decrease;
+                kmstate.topChunkSize -= decrease;
+                if(kmstate.topChunkSize){
+                    kmstate.topChunk->header = kmstate.topChunkSize | PINUSE;
+                    dummy = NEXTCHUNK(kmstate.topChunk);
+                    dummy->prev_foot = kmstate.topChunkSize;
+                    dummy->header = 0;
+                } else {
+                    kmstate.topChunk->header = 0;
+                }
             }
+
         }
     }
 }
 static int grow_top(size_t increment) {
-     if(increment > HALF_MAX_SIZE_T)        //prevent signed overflow
+    kmchunk_ptr dummy;
+
+
+    increment = (increment + (HEAP_SIZE_ALIGN - 1)) & ~(HEAP_SIZE_ALIGN - 1);
+
+    if(increment > HALF_MAX_SIZE_T)        //prevent signed overflow
         return -1;
 
     if(ACTION_SBRK((intptr_t) increment) != (void *) -1) {
-        kmstate.heap_size+= increment;
+        kmstate.heap_size += increment;
+        kmstate.topChunkSize += increment;
+        kmstate.topChunk->header = kmstate.topChunkSize | PINUSE;
+        dummy = NEXTCHUNK(kmstate.topChunk);
+        dummy->prev_foot = kmstate.topChunkSize;
+        dummy->header = 0;
+
         return 0;
     }
 

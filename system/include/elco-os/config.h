@@ -4,6 +4,10 @@
 #define VERSION_MAJOR "0"
 #define VERSION_MINOR "2"
 
+#define _ARCH_I386  386
+
+#define ARCHITECTURE _ARCH_I386
+
 #define KERNEL_VIRTUAL_BASE 0xC0000000 //virtual address of kernel space
 
 #define PAGE_SIZE 4096u

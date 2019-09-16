@@ -2,7 +2,7 @@
 #include <elco-os/config.h>
 #include "config.h"
 #include "const.h"  
-#include "multiboot.h"
+#include <elco-os/multiboot.h>
 
 # Declare constants used for creating a multiboot header.
 .set MULTIBOOT_HEADER_FLAGS,  (MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO)

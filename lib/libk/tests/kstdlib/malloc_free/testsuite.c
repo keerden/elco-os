@@ -31,8 +31,10 @@ int check_heap_integrity(void *heap, size_t heapsize)
 
     while (chunk->header != 0)
     {
-
         size = GETCHUNKSIZE(chunk);
+        if (size > heapsize)
+            REPORT("Chunksize larger than heapsize", chunk, heap);
+
         if (((size_t)chunk + size) > ((size_t)heap + heapsize))
             REPORT("Chunksize overflows heap", chunk, heap);
         if (size < MINCHUNKSIZE)
@@ -335,7 +337,7 @@ void debugDump(char *desc, void *addr, int len)
                 printf("  %s\n", buff);
 
             // Output the offset.
-            printf("  %08x ", (int)&pc[i]);
+            printf("  %08x ", (int)&pc[i] - (int) addr);
         }
 
         // Now the hex code for the specific character.

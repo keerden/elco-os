@@ -3,9 +3,9 @@
 
 #include <elco-os/config.h>
 
-
-
-#define KERNEL_STACK_SIZE       8192u                //8 Kib stack space
+#define KERNEL_STACK_SIZE           8192u                //8 Kib stack space
+#define KERNEL_INITIAL_HEAP_SIZE    8192u                //initial heap size (page alligned)
+#define KERNEL_HEAP_LIMIT           0XFF800000u  
 
 #define KERNEL_PTABLE_ADDR      0xFFC00000u          //virtual address of recursive mapped page tables
 #define KERNEL_PDE_ADDR         0xFFFFF000u          //virtual address of the page directory itself

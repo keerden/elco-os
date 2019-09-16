@@ -8,7 +8,7 @@
 #include "kstdlib/malloc_free/kmalloc.h"
 #include "kstdlib/malloc_free/kmalloc_util.h"
 
-#define HEAPSIZE 9216
+#define HEAPSIZE 12288
 
 uint8_t heap[HEAPSIZE] __attribute__((aligned(8)));
 
@@ -112,23 +112,23 @@ void test_MallocOverLimit(void)  //allocate more than heapsize, but less than ma
     struct kmalloc_state state;
     void *mem;
     libk_set_callback_sbrk(callback_ok);
-    libk_init_heap((void *)heap, 512);
+    libk_init_heap((void *)heap, 4096);
 
-    mem = kmalloc(520 + 4 - 8 - DUMMYSIZE);
+    mem = kmalloc(4200);
     TEST_ASSERT_NOT_NULL(mem);
     TEST_ASSERT_EQUAL(1, cb_ok);
 
-    memset(mem, '1', 520 + 4 - 8 - DUMMYSIZE);
+    memset(mem, '1', 4200);
 
     state = kmalloc_debug_getstate();
-    TEST_ASSERT_EQUAL(520, state.heap_size);
+    TEST_ASSERT_EQUAL(8192, state.heap_size);
     test_chunkinfo expected[2] = {
-        {USED, 520 - DUMMYSIZE, mem},
-        {TC, 0, NULL}};
+        {USED, 4200 + 8, mem},
+        {TC, 8192 - 4200 - 8 -  DUMMYSIZE, NULL}};
 
-    TEST_ASSERT_FALSE(check_heap_integrity(heap, 520));
-    TEST_ASSERT_FALSE(check_heap_layout(expected, 2, state, heap, 520));
-    TEST_ASSERT_FALSE(check_bins(heap,  520, state));
+    TEST_ASSERT_FALSE(check_heap_integrity(heap, 8192));
+    TEST_ASSERT_FALSE(check_heap_layout(expected, 2, state, heap, 8192));
+    TEST_ASSERT_FALSE(check_bins(heap,  8192, state));
     
 }
 
@@ -253,25 +253,28 @@ void test_FreeSchrinkTop(void)
     struct kmalloc_state state;
     void *mem;
     libk_set_callback_sbrk(callback_ok);
-    libk_init_heap((void *)heap, HEAP_SHRINK_MIN);
+    libk_init_heap((void *)heap, 4096U);
 
-    mem = kmalloc(HEAP_SHRINK_TRESHOLD + HEAP_SHRINK_MIN - DUMMYSIZE + 4);
-    memset(mem, '#', HEAP_SHRINK_TRESHOLD + HEAP_SHRINK_MIN - DUMMYSIZE+ 4);
-
-
+    mem = kmalloc(HEAP_SHRINK_TRESHOLD + 4096U - DUMMYSIZE + 4);
+    memset(mem, '#', HEAP_SHRINK_TRESHOLD + 4096U - DUMMYSIZE+ 4);
+ //   printf("size %x \n", HEAP_SHRINK_TRESHOLD + 4096U - DUMMYSIZE + 4);
+ //   debugDump("dump", heap, 12288);
     kfree(mem);
+
+ //   debugDump("dump free", heap, 12288);
+
 
     state = kmalloc_debug_getstate();
     TEST_ASSERT_EQUAL(2, cb_ok);
-    TEST_ASSERT_EQUAL(-HEAP_SHRINK_TRESHOLD - 8, increment);
-    TEST_ASSERT_EQUAL(HEAP_SHRINK_MIN, state.heap_size);
+    TEST_ASSERT_EQUAL(-((HEAP_SHRINK_TRESHOLD + 8) & ~(HEAP_SIZE_ALIGN - 1))  , increment);
+    TEST_ASSERT_EQUAL(8192U, state.heap_size);
 
     test_chunkinfo expected[1] = {
-        {TC, HEAP_SHRINK_MIN - DUMMYSIZE, NULL}};
+        {TC, 8192U - DUMMYSIZE, NULL}};
 
-    TEST_ASSERT_FALSE(check_heap_integrity(heap, HEAP_SHRINK_MIN));
-    TEST_ASSERT_FALSE(check_heap_layout(expected, 1, state, heap, HEAP_SHRINK_MIN));
-    TEST_ASSERT_FALSE(check_bins(heap,  HEAP_SHRINK_MIN, state));
+    TEST_ASSERT_FALSE(check_heap_integrity(heap, 8192U));
+    TEST_ASSERT_FALSE(check_heap_layout(expected, 1, state, heap, 8192U));
+    TEST_ASSERT_FALSE(check_bins(heap,  8192U, state));
 }
 
 void test_FreeSchrinkEmptyTop(void)
@@ -279,77 +282,25 @@ void test_FreeSchrinkEmptyTop(void)
     struct kmalloc_state state;
     void *mem1, *mem2;
     libk_set_callback_sbrk(callback_ok);
-    libk_init_heap((void *)heap, HEAP_SHRINK_MIN);
+    libk_init_heap((void *)heap, 4096U);
 
-    mem1 = kmalloc(HEAP_SHRINK_MIN -8 - DUMMYSIZE + 4);
-    memset(mem1, 'A', HEAP_SHRINK_MIN -8 - DUMMYSIZE + 4);
+    mem1 = kmalloc(4096U -8 - DUMMYSIZE + 4);
+    memset(mem1, 'A', 4096U -8 - DUMMYSIZE + 4);
     mem2 = kmalloc(HEAP_SHRINK_TRESHOLD + 4);
 
     kfree(mem2);
 
     state = kmalloc_debug_getstate();
     TEST_ASSERT_EQUAL(2, cb_ok);
-    TEST_ASSERT_EQUAL(-HEAP_SHRINK_TRESHOLD - 8, increment);
-    TEST_ASSERT_EQUAL(HEAP_SHRINK_MIN, state.heap_size);
-
-    test_chunkinfo expected[1] = {
-        {USED, HEAP_SHRINK_MIN - DUMMYSIZE, mem1}};
-
-    TEST_ASSERT_FALSE(check_heap_integrity(heap, HEAP_SHRINK_MIN));
-    TEST_ASSERT_FALSE(check_heap_layout(expected, 1, state, heap, HEAP_SHRINK_MIN));
-    TEST_ASSERT_FALSE(check_bins(heap,  HEAP_SHRINK_MIN, state));
-}
-
-void test_FreeSchrinkTop_heapsize_below_threshold(void)
-{
-    struct kmalloc_state state;
-    void *mem1, *mem2;
-    libk_set_callback_sbrk(callback_ok);
-    libk_init_heap((void *)heap, HEAP_SHRINK_MIN);
-
-    mem1 = kmalloc(64 + 4);
-    memset(mem1, 'A', 64 + 4);
-    mem2 = kmalloc(HEAP_SHRINK_TRESHOLD + 8);
-    memset(mem2, 'B', HEAP_SHRINK_TRESHOLD + 8);
-
-    kfree(mem2);
-
-    state = kmalloc_debug_getstate();
-    TEST_ASSERT_EQUAL(1, cb_ok);
-    TEST_ASSERT_EQUAL(64 + 8 + HEAP_SHRINK_TRESHOLD + 16 + DUMMYSIZE , state.heap_size);
+    TEST_ASSERT_EQUAL(-4096, increment);
+    TEST_ASSERT_EQUAL(8192U, state.heap_size);
 
     test_chunkinfo expected[2] = {
-        {USED, 64 + 8, mem1},
-        {TC, HEAP_SHRINK_TRESHOLD + 16, NULL}};
+        {USED, 4096U - DUMMYSIZE, mem1},
+        {TC, 8192U - (4096U - DUMMYSIZE) - DUMMYSIZE , NULL}};
 
-    TEST_ASSERT_FALSE(check_heap_integrity(heap, state.heap_size));
-    TEST_ASSERT_FALSE(check_heap_layout(expected, 2, state, heap, state.heap_size));
-    TEST_ASSERT_FALSE(check_bins(heap,  state.heap_size, state));
+    TEST_ASSERT_FALSE(check_heap_integrity(heap, 8192U));
+    TEST_ASSERT_FALSE(check_heap_layout(expected, 2, state, heap, 8192U));
+    TEST_ASSERT_FALSE(check_bins(heap,  8192U, state));
 }
 
-void test_FreeSchrinkTop_topchunk_below_treshold(void)
-{
-    struct kmalloc_state state;
-    void *mem1, *mem2;
-    libk_set_callback_sbrk(callback_ok);
-    libk_init_heap((void *)heap, HEAP_SHRINK_MIN);
-
-    mem1 = kmalloc(HEAP_SHRINK_MIN + 256);
-    memset(mem1, 'A', HEAP_SHRINK_MIN + 256);
-    mem2 = kmalloc(HEAP_SHRINK_TRESHOLD -16);
-    memset(mem2, 'B', HEAP_SHRINK_TRESHOLD -16);
-
-    kfree(mem2);
-
-    state = kmalloc_debug_getstate();
-    TEST_ASSERT_EQUAL(2, cb_ok);
-    TEST_ASSERT_EQUAL(HEAP_SHRINK_MIN + 256 + 8 + HEAP_SHRINK_TRESHOLD - 16 + 8 + DUMMYSIZE , state.heap_size);
-
-    test_chunkinfo expected[2] = {
-        {USED, HEAP_SHRINK_MIN + 256 + 8, mem1},
-        {TC, HEAP_SHRINK_TRESHOLD - 16 + 8, NULL}};
-
-    TEST_ASSERT_FALSE(check_heap_integrity(heap, state.heap_size));
-    TEST_ASSERT_FALSE(check_heap_layout(expected, 2, state, heap, state.heap_size));
-    TEST_ASSERT_FALSE(check_bins(heap,  state.heap_size, state));
-}

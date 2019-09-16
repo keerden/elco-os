@@ -17,7 +17,8 @@
 #include "glo.h"
 #include "proto.h"
 
-
-
+#if ARCHITECTURE == _ARCH_I386
+    #include "i386/arch_interface.h"
+#endif
 
 #endif

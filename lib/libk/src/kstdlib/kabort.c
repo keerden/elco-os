@@ -6,7 +6,7 @@ __attribute__((__noreturn__))
 void kabort(void)
 {
 	// TODO: Add proper kernel panic.
-	kprintf("Kernel Panic: abort()\n");
+	kprintf("Kernel Panic: kabort()\n");
 	__ABORT_CALLBACK();
 	while ( 1 ) { }
 	__builtin_unreachable();

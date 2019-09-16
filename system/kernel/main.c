@@ -1,17 +1,21 @@
 #include "kernel.h"
+#include <libk.h>
 #include <kstring.h>
+#include <kstdlib.h>
 
-#include "multiboot.h"
-#include "i386/i386.h"
+#include <elco-os/multiboot.h>
 
 
 static void get_mmap(multiboot_info_t *bootinfo);
+void print_logo(void);
+
 
 struct kinfo kinfo;
 
 void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 {
-	i386_init();
+	arch_init_display();
+	libk_set_callback_putc(arch_display_putc);
 
 	if(magic != MULTIBOOT_BOOTLOADER_MAGIC){
 		kpanic("Elco-OS should be loaded with a valid multiboot bootloader!\n");
@@ -46,44 +50,52 @@ void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 	}
 
 	kdebug("%u entries, %u MB available\n", kinfo.mmap_size, free >> 20);
+	arch_init_tables();
+	arch_init_interrupts();
 	memory_init();
 
+	
 }
+
 
 void kernel_main(void)
 {
-	int t1 = memory_allocate_page(0x1000,0,0);
-	int t2 = memory_allocate_page(0x2000,1,0);
-	int t3 = memory_allocate_page(0x3000,0,1);
-	int t4 = memory_allocate_page(0x1000,1,1);
-
-	kdebug("t1 %d t2 %d t3 %d t4 %d\n", t1, t2, t3, t4);
-
-	t1 = memory_free_page(0x1000);
-	t2 = memory_unmap_addr(0x2000);
-	t3 = memory_map_addr(0xB0000000, 0x1000,0,0);
-	kdebug("%d %d %d\n", t1, t2, t3);
-
- 	terminal_print_logo();
+ 	print_logo();
 	kdebug("started\n");
+	arch_intr_enable();
+//	init_timer(60);
 
 	while(1);
 
 }
 
 void kerror(const char* error) {
-	terminal_writestring("Kerror: ");
-	terminal_writestring(error);
+	kprintf("Kerror: %s\n", error);
 }
 
 void kpanic(const char* message) {
-	terminal_writestring("Kernel panic! - ");
-	terminal_writestring(message);
+	kprintf("Kernel panic! - %s\n", message);
 	//kabort();
 	while(1);
 }
 
+void print_logo(void)
+{
+	char logo[800] = 
+		"                                                                                "
+		"             #### ##      ####    ####              ####     #####              "
+		"             ##   ##    ##      ##    ##          ##    ##  ##                  "
+		"             ###  ##    ##      ##    ##  ######  ##    ##   #####              "
+		"             ##   ##    ##      ##    ##          ##    ##       ##             "
+		"             #### ####    ####    ####              ####     #####              "
+		"                                                                                ";
+	
+	arch_display_setcolor(COLOR_LIGHT_BROWN, COLOR_BLUE);
+	kprintf(logo);
+	arch_display_setcolor(COLOR_LIGHT_GREY, COLOR_BLACK);
+	kprintf("\n");
 
+} 
 
 static void get_mmap(multiboot_info_t *bootinfo) {
 

@@ -100,6 +100,7 @@ typedef struct kmalloc_tree_chunk* ktchunk_ptr;
 struct kmalloc_state {
     void *heap_start;
     size_t heap_size;
+    size_t initial_heap_size;
     binmap_t    sbinmap;
     binmap_t    tbinmap;
     kmchunk_ptr sbin[NSBINS];
@@ -118,7 +119,7 @@ struct kmalloc_state {
 #define ADDRESS_OK(chunk, state) (ADDR_AFTER_HEAPSTART((void*) (chunk), (state)) && ADDR_BEFORE_HEAPEND((void*) (chunk), (state)))
 
 #define HEAP_SHRINK_TRESHOLD (4096U)
-#define HEAP_SHRINK_MIN      (4096U)
+#define HEAP_SIZE_ALIGN (4096U)
 
 
 void kmalloc_init(void *heap_addr, size_t heap_size);

@@ -1,7 +1,13 @@
-/*  This file contains the code for memory management and paging.  */
+/*  This file contains the code for memory management and paging. 
+ * 
+ *  TODO:separate the i386 specific code
+ * 
+ */
 
 #include "kernel.h"
 #include <kstring.h>
+#include <libk.h>
+#include <kstdlib.h>
 
 #define PTE_MAX 1024u
 #define PDE_MAX 1024u
@@ -39,6 +45,8 @@ static struct page_directory *kernel_pde;
 static struct page_table *kernel_page_tables;
 static struct page_table *pstack_page_table;
 static phys_bytes pstack_pointer;
+static size_t kernel_heap_size;
+static vir_bytes kernel_heap_addr;
 
 static int set_page(vir_bytes vaddr, phys_bytes frame, uint32_t flags);
 static int get_page(vir_bytes vaddr, phys_bytes *frame, uint32_t *flags);
@@ -49,6 +57,8 @@ static inline int ptable_is_set(vir_bytes addr);
 
 static int pstack_push(phys_bytes frame);
 static int pstack_pop(phys_bytes *frame);
+
+static void *heap_callback(intptr_t difference);
 
 /****************
  * set_page
@@ -137,11 +147,11 @@ static int get_page(vir_bytes vaddr, phys_bytes *frame, uint32_t *flags)
  * 
  ***************/
 #pragma GCC push_options
-#pragma GCC optimize ("O0")
+#pragma GCC optimize("O0")
 
 static void set_page_table(vir_bytes vsaddr, phys_bytes table, uint32_t flags, int clear)
 {
-  
+
     vir_clicks vclick = PTABLE_PDE_NUM(vsaddr);
     flags &= PTABLE_FLAGS_MASK;
     table &= ~PTABLE_FLAGS_MASK;
@@ -153,10 +163,11 @@ static void set_page_table(vir_bytes vsaddr, phys_bytes table, uint32_t flags, i
                          : "%eax", "memory");
     if (clear)
     {
-        for (unsigned int i = 0; i < PTE_MAX; i++){
+        for (unsigned int i = 0; i < PTE_MAX; i++)
+        {
             kernel_page_tables[vclick].entry[i] = 0;
         }
-            
+
         __asm__ __volatile__("movl %%cr3, %%eax; movl %%eax, %%cr3"
                              :
                              :
@@ -344,6 +355,20 @@ int memory_init(void)
         }
     }
 
+    /* setup heap */
+    kernel_heap_addr = kinfo.kernel_end_vir;
+    kernel_heap_size = KERNEL_INITIAL_HEAP_SIZE;
+
+    for (vir_bytes i = 0; i < kernel_heap_size; i += PAGE_SIZE)
+    {
+        if (memory_allocate_page(kernel_heap_addr + i, FALSE, TRUE))
+        {
+            kpanic("Unable to map kernel heap.");
+        }
+    }
+    libk_set_callback_sbrk(heap_callback);
+    libk_init_heap((void *) kernel_heap_addr, kernel_heap_size);
+
     //unmap initial identity mapping
     for (vir_clicks i = 0; i < PTABLE_PDE_NUM(kinfo.kernel_start_vir); i++)
         kernel_pde->ptable[i] = 0;
@@ -360,7 +385,7 @@ int memory_init(void)
  **************** 
  * 
  * Allocates a page to the given address.
- * If the given addres is already mapped, the behaviour is undefined
+ * If the given addres is already mapped, an error will be returned
  * 
  * Inputs:
  *      - vaddr: virtual address to map-in a page
@@ -506,4 +531,83 @@ int memory_unmap_addr(vir_bytes vaddr)
         return 1;
 
     return set_page(vaddr, 0, 0);
+}
+
+/****************
+ * heap_callback
+ **************** 
+ * 
+ * This function is called when the kernel heap needs to grow or schrink
+ * It will map or unmap extra pages if possible
+ * 
+ * Inputs:
+ *      - difference: Bytes to add to the heap. When negative, bytes are removed.
+ * 
+ * Returns:
+ *      - 0 on success, or -1 on failure
+ **************/
+static void *heap_callback(intptr_t difference)
+{
+    size_t amount;
+    vir_bytes new_heap_end;
+    vir_bytes current_heap_end = kernel_heap_addr + kernel_heap_size;
+    vir_bytes new_end_page;
+    vir_bytes cur_end_page = PAGE_FLOOR(current_heap_end - 1);
+    vir_bytes page;
+
+    if (difference == 0)
+        return (void *)0;
+
+    if (difference < 0)  {
+        amount = (size_t) (-difference);
+        //check for underflow
+        if(amount  > current_heap_end)
+            return (void *)-1;
+
+        //check to maintain at least minimal heap size
+        if (kernel_heap_size - amount < KERNEL_INITIAL_HEAP_SIZE)
+            return (void *)-1;
+
+        new_heap_end = current_heap_end - amount;
+        new_end_page = PAGE_FLOOR(new_heap_end - 1);
+        
+        for(page = cur_end_page; page > new_end_page; page -= PAGE_SIZE){
+            memory_free_page(page);
+        }
+        kernel_heap_size -= amount;
+
+    } else {
+        amount = (size_t) difference;
+        //check for maximum heap size and for overflow
+        if (current_heap_end + amount >= KERNEL_HEAP_LIMIT)
+            return (void *)-1;
+
+        if(current_heap_end + amount < current_heap_end)
+            return (void *)-1;
+
+        new_heap_end = current_heap_end + amount;
+        new_end_page = PAGE_FLOOR(new_heap_end - 1);
+
+        int alloc_error = 0;
+        for(page = cur_end_page + PAGE_SIZE; page <= new_end_page; page += PAGE_SIZE){
+            alloc_error = memory_allocate_page(page, FALSE, TRUE);
+            if(alloc_error)
+                break;
+        }
+
+        //if there was an allocation error, rollback changes and return error
+        if(alloc_error)
+        {
+            for(page = page - PAGE_SIZE; page > cur_end_page; page -= PAGE_SIZE){
+                memory_free_page(page);
+            }
+            return (void *)-1;
+        }
+
+        kernel_heap_size += amount;
+    }
+
+  
+
+    return (void *)0;
 }

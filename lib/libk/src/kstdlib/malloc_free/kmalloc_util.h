@@ -2,134 +2,53 @@
 #define __KMALLOC_UTIL
 
 #include "kmalloc.h"
+#include "../../callback.h"
+
+#define ACTION_SBRK(increment)  __SBRK_CALLBACK(increment)
+#define ACTION_ABORT()          __ABORT_CALLBACK()   
+
+extern struct kmalloc_state kmstate;
 
 
-/****
- *  void kmalloc_dllist_add(kmchunk_ptr chunk, kmchunk_ptr *head)
- * 
- *  Adds a chunk to the front of the list and modifies the head.
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to the new chunk to be added
- *      kmchunk_ptr *head  -  pointer to the headpointer
- * */
-void kmalloc_dllist_add(kmchunk_ptr chunk, kmchunk_ptr *head);
 
-/****
- *  void kmalloc_dllist_add_end(kmchunk_ptr chunk, kmchunk_ptr head)
- * 
- *  Adds a chunk to the end of a nonempty list.
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to the new chunk to be added
- *      kmchunk_ptr  head  -  pointer to the head chunk
- * */
-void kmalloc_dllist_add_end(kmchunk_ptr chunk, kmchunk_ptr head);
+void *kmalloc_intern(size_t chunksize, int allow_expand);
 
-/****
- *  kmchunk_ptr kmalloc_dllist_remove(kmchunk_ptr *head);
- * 
- *  Removes the chunk from the front of the list.
- *
- *  inputs
- *      kmchunk_ptr *head  -  pointer to the headpointer
- *
- *  Returns:
- *      pointer to the removed chunk 
- * */
-
-kmchunk_ptr kmalloc_dllist_remove(kmchunk_ptr *head);
-
-/****
- *  void kmalloc_chunk_iterate(kmchunk_ptr *chunk);
- * 
- *  Used for iterating through all chunks in heap.
- *
- *  inputs
- *      kmchunk_ptr *chunk  -  pointer to current chunk address
- *
- *  outputs
- *      kmchunk_ptr *chunk  -  points to next chunk, 
- *                             equal to NULL when the end of heap is reached
- * */
-
-void kmalloc_chunk_iterate(kmchunk_ptr *chunk);
-
-/****
- *  kmchunk_ptr kmalloc_dllist_remove_intern(kmchunk_ptr chunk, kmchunk_ptr *head);
- * 
- *  Removes the given chunk from the list and updates the head if needed.
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to the chunk to be removed
- *      kmchunk_ptr *head  -  pointer to the headpointer
- *
- *  Returns:
- *      pointer to the removed chunk 
- * */
-
-kmchunk_ptr kmalloc_dllist_remove_intern(kmchunk_ptr chunk, kmchunk_ptr *head);
+void merge_free_chunks(kmchunk_ptr first, size_t first_size, kmchunk_ptr next);
+int try_expand_chunk(kmchunk_ptr chunk, size_t new_size);
 
 
-/****
- *  void kmalloc_tree_insert(ktchunk_ptr chunk, ktchunk_ptr *root, int depth);
- * 
- *  Insert a chunk in a tree. Updates root if it is NULL
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to chunk to be inserted
- *      kmchunk_ptr *root  -  pointer to the root address of the tree
- *      int depth          -  max depth of tree 
- * 
- * */
 
-void kmalloc_tree_insert(ktchunk_ptr chunk, ktchunk_ptr *root, int depth);
+void *split_top(size_t chunksize, int allow_expand);
+void shrink_top(void);
+int grow_top(size_t increment);
 
-/****
- *  void kmalloc_tree_remove(ktchunk_ptr chunk, ktchunk_ptr *root);
- * 
- *  Removes a chunk from a tree. Updates root if needed
- *  if the chunk is not a leave. It is replaced by the first left-most leave below.
- * 
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to chunk to be inserted
- *      kmchunk_ptr *root  -  pointer to the root address of the tree
- * 
- * */
+void *allocate_dv(size_t chunksize);
+void replace_dv(kmchunk_ptr newdv);
 
-void kmalloc_tree_remove(ktchunk_ptr chunk, ktchunk_ptr *root);
+void bin_chunk(kmchunk_ptr chunk);
+void unbin_chunk(kmchunk_ptr chunk);
 
-/****
- *  ktchunk_ptr kmalloc_tree_get_best_fit(size_t size, ktchunk_ptr root, int depth);
- * 
- *  Removes the best fitting chunk from the tree.
- *
- *  inputs
- *      size_t size        -  wanted chunksize
- *      kmchunk_ptr root  -  pointer to the root of the tree
- *      int depth          -  max depth of tree
- * 
- *  returns
- *      a ktchunk_ptr pointing to the best fitting chunk
- * 
- * */
+void *split_sbin(binmap_t index, size_t chunksize);
+void *allocate_sbin(binmap_t size);
+void *allocate_tchunk(ktchunk_ptr chunk, size_t wanted_size);
+void *allocate_smallest_tbin(size_t wanted_size);
 
-ktchunk_ptr kmalloc_tree_get_best_fit(size_t size, ktchunk_ptr root, int depth);
+inline binmap_t calc_tbin(size_t size)
+{
+    if (size < (1 << TBIN_SHIFT))
+        return 0;
+    if (size > (0xFFFF << TBIN_SHIFT))
+        return 31;
 
-/****
- *  ktchunk_ptr kmalloc_tree_get_smallest(ktchunk_ptr root);
- * 
- *  Removes the smallest chunk from the tree.
- *
- *  inputs
- *      kmchunk_ptr root  -  pointer to the root of the tree
- * 
- *  returns
- *      a ktchunk_ptr pointing to the smallest chunk
- * 
- * */
+    binmap_t msb = 31U - (binmap_t) __builtin_clz(size);
+    //msb * 2, add 1 if size lays in higher half of the decade
+    return ((msb - TBIN_SHIFT) << 1) | ((size >> (msb - 1)) & 1);
+}
 
-ktchunk_ptr kmalloc_tree_get_smallest(ktchunk_ptr root);
+inline binmap_t calc_leftbin(binmap_t index, binmap_t map)
+{
+    binmap_t mask = -(1U << index); //maskout all right bits
+    return (binmap_t) __builtin_ctz(map & mask);
+}
 
-#endif // !__KMALLOC_UTIL
+#endif

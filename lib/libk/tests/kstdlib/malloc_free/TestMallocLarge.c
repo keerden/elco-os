@@ -6,7 +6,6 @@
 #include <kstdlib.h>
 #include <libk.h>
 #include "kstdlib/malloc_free/kmalloc.h"
-#include "kstdlib/malloc_free/kmalloc_util.h"
 
 
 #define HEAPSIZE 4096

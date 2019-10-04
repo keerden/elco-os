@@ -1,396 +1,428 @@
+#include <kstdlib.h>
 #include "kmalloc.h"
 #include "kmalloc_util.h"
+#include "kmalloc_tree.h"
 
+#include "../../callback.h"
 
-#define ktchunk_is_leave(chunk) (((chunk)->left == NULL) && ((chunk)->right == NULL))
-#define ktchunk_is_in_list(chunk) (((chunk)->next != (chunk)) && ((chunk)->prev != (chunk)))
-
-//note following macro does not work for a tree of 1 item
-#define ktchunk_is_in_tree(chunk) (((chunk)->left != NULL) || ((chunk)->right != NULL) || ((chunk)->parent != NULL))
-
-#define ktchunk_replace_head(old, new) {\
-    (new)->parent = (old)->parent; \
-    (new)->left = (old)->left;\
-    (new)->right = (old)->right;\
-    (new)->prev = (old)->prev;\
-    ((old)->prev)->next = (new);\
-    if((new)->left != NULL) \
-        (new)->left->parent = (new);\
-    if((new)->right != NULL) \
-        (new)->right->parent = (new); \
+struct kmalloc_state kmstate;
+   
+struct kmalloc_state kmalloc_debug_getstate(void)
+{
+    return kmstate;
 }
 
-#define ktchunk_update_parent(chunk, newchild) {\
-    if(((chunk)->parent)->left == (chunk)) \
-        ((chunk)->parent)->left = (newchild); \
-    else \
-        ((chunk)->parent)->right = (newchild);\
-}
+void kmalloc_init(void *heap_addr, size_t heap_size)
+{
+    kmchunk_ptr top_chunk;
+    size_t top_size, offset;
 
-
-/****
- *  void kmalloc_dllist_add(kmchunk_ptr chunk, kmchunk_ptr head)
- * 
- *  Adds a chunk to the front of the list and modifies the head.
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to the new chunk to be added
- *      kmchunk_ptr *head  -  pointer to the headpointer
- * */
-void kmalloc_dllist_add(kmchunk_ptr chunk, kmchunk_ptr *head) {
-    kmchunk_ptr next;
-    kmchunk_ptr prev;
-    
-    if(*head != NULL){
-        next = *head;
-        prev = next->prev;
-        chunk->next = next;
-        chunk->prev = prev;
-        prev->next = chunk;
-        next->prev = chunk;
-    }else{
-        chunk->next = chunk;
-        chunk->prev = chunk;
-    }
-
-    *head = chunk;
-}
-
-/****
- *  void kmalloc_dllist_add_end(kmchunk_ptr chunk, kmchunk_ptr head)
- * 
- *  Adds a chunk to the end of a nonempty list.
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to the new chunk to be added
- *      kmchunk_ptr  head  -  pointer to the head chunk
- * */
-void kmalloc_dllist_add_end(kmchunk_ptr chunk, kmchunk_ptr head) {
-    kmchunk_ptr prev;
-    
-    if(head == NULL)
+    if (heap_addr == NULL)
         return;
 
-    prev = head->prev;
-    chunk->prev = prev;
-    chunk->next = head;
-    prev->next = chunk;
-    head->prev = chunk;
-}
+    top_chunk = CHUNKALIGN(heap_addr);
+    offset = (size_t)top_chunk - (size_t)heap_addr;
 
-/****
- *  kmchunk_ptr kmalloc_dllist_remove_intern(kmchunk_ptr chunk, kmchunk_ptr *head);
- * 
- *  Removes the given chunk from the list and updates the head if needed.
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to the chunk to be removed
- *      kmchunk_ptr *head  -  pointer to the headpointer, headpointer will be updated
- *
- *  Returns:
- *      pointer to the removed chunk 
- * */
-
-kmchunk_ptr kmalloc_dllist_remove_intern(kmchunk_ptr chunk, kmchunk_ptr *head) {
-    
-    kmchunk_ptr next;
-    kmchunk_ptr prev;
-
-    if(chunk == NULL)
-        return NULL;
-    
-    next = chunk->next;
-    prev = chunk->prev;
-
-    if(next != chunk){
-        prev->next = next;
-        next->prev = prev;
-        if(*head == chunk)
-            *head = next;
-    } else {
-        *head = NULL;
-    }
-
-
-    return chunk;
-}
-
-/****
- *  kmchunk_ptr kmalloc_dllist_remove(kmchunk_ptr *head);
- * 
- *  Removes the given chunk from the frontof the list.
- *
- *  inputs
- *      kmchunk_ptr *head  -  pointer to the headpointer, , headpointer will be updated
- *
- *  Returns:
- *      pointer to the removed chunk 
- * */
-
-kmchunk_ptr kmalloc_dllist_remove(kmchunk_ptr *head) {
-    kmchunk_ptr next;
-    kmchunk_ptr prev;
-    kmchunk_ptr chunk;
-    
-    chunk = *head;
-
-    if(chunk == NULL)
-        return NULL;
-
-    next = chunk->next;
-    prev = chunk->prev;
-
-    if(next != chunk){
-        prev->next = next;
-        next->prev = prev;
-        *head = next;
-    }else{
-        *head = NULL;
-    }
-    return chunk;
-}
-
-/****
- *  void kmalloc_chunk_iterate(kmchunk_ptr *chunk);
- * 
- *  Used for iterating through all chunks in heap.
- *
- *  inputs
- *      kmchunk_ptr *chunk  -  pointer to current chunk address
- *
- *  outputs
- *      kmchunk_ptr *chunk  -  points to next chunk, 
- *                             equal to NULL when the end of heap is reached
- * */
-
-void kmalloc_chunk_iterate(kmchunk_ptr *chunk) {
-    kmchunk_ptr ch = *chunk;
-    if(ch->header != 0) {
-        *chunk = (kmchunk_ptr) ((uint8_t*)ch + GETCHUNKSIZE(ch));
-    } else{
-        *chunk = NULL;
-    }
-}
-
-
-
-/****
- *  void kmalloc_tree_insert(ktchunk_ptr chunk, ktchunk_ptr *root, int depth);
- * 
- *  Insert a chunk in a tree based on its size. Updates root if it is NULL
- *  If there already exists a node with the same size, they will form a list.
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to chunk to be inserted
- *      kmchunk_ptr *root  -  pointer to the root address of the tree
- *      int depth          -  max depth of tree 
- * 
- * */
-
-void kmalloc_tree_insert(ktchunk_ptr chunk, ktchunk_ptr *root, int depth) {
-    ktchunk_ptr parent = NULL;
-    ktchunk_ptr cur;
-    size_t size, isright;
-
-    if(depth <= 0 || chunk == NULL || root == NULL)
+    if ((offset + MINCHUNKSIZE + DUMMYSIZE) > heap_size)
         return;
 
-    chunk->next = chunk->prev = chunk;
-    chunk->left = chunk->right = NULL;
+    top_size = CHUNKFLOOR(heap_size - offset - DUMMYSIZE);
 
-    size = GETCHUNKSIZE(chunk);
-    if(*root == NULL) { //just add
-        *root = chunk;
-        chunk->parent = chunk->left = chunk->right = NULL;
-    } else {
-        cur = *root;
-        while(cur != NULL) {
-            if(size == GETCHUNKSIZE(cur)){
-                chunk->parent = NULL;
-                kmalloc_dllist_add_end((kmchunk_ptr) chunk, (kmchunk_ptr) cur);
-                return;
+    top_chunk->header = top_size | PINUSE;
+    top_chunk->next = top_chunk->prev = top_chunk;
+
+    //set dummy
+    NEXTCHUNK(top_chunk)->prev_foot = top_size;
+    NEXTCHUNK(top_chunk)->header = 0;
+
+    kmstate.heap_start = top_chunk;
+    kmstate.heap_size = heap_size - offset;
+    kmstate.initial_heap_size = kmstate.heap_size;
+    kmstate.sbinmap = kmstate.tbinmap = 0;
+    for (size_t i = 0; i < NSBINS; i++)
+        kmstate.sbin[i] = NULL;
+    for (size_t i = 0; i < NTBINS; i++)
+        kmstate.tbin[i] = NULL;
+    kmstate.dVictim = NULL;
+    kmstate.dVictimSize = 0;
+    kmstate.topChunk = top_chunk;
+    kmstate.topChunkSize = top_size;
+    kmstate.magic = KMALLOC_STATE_MAGIC;
+}
+
+void merge_free_chunks(kmchunk_ptr first, size_t first_size, kmchunk_ptr next){
+    size_t new_size, next_size;
+
+    if (!IS_INUSE(next))
+    {
+        next_size = GETCHUNKSIZE(next);
+        new_size = first_size + next_size;
+        first->header = new_size | PINUSE; 
+        CHUNKOFFSET(first, new_size)->prev_foot = new_size;
+        if (next == kmstate.topChunk)
+        {
+            if (first == kmstate.dVictim)
+            {
+                kmstate.dVictim = NULL;
+                kmstate.dVictimSize = 0;
             }
-            parent = cur;
-            isright = size & (SIZE_T_ONE << (depth - 1));
-            cur = isright?(cur->right):(cur->left);
-            depth--;
-            if(depth < 0)   //this should not happen!
-                return;
+            kmstate.topChunk = first;
+            kmstate.topChunkSize = new_size;
+            NEXTCHUNK(kmstate.topChunk)->prev_foot = new_size;
+
+            shrink_top();
         }
-        chunk->parent = parent;
-        if(isright)
-            parent->right = chunk;
+        else if (next == kmstate.dVictim)
+        {
+            kmstate.dVictim = first;
+            kmstate.dVictimSize = new_size;
+        }
         else
-            parent->left = chunk;
+        {
+            unbin_chunk(next);
 
-    }
-
-}
-
-/****
- *  void kmalloc_tree_remove(ktchunk_ptr chunk, ktchunk_ptr *root);
- * 
- *  Removes a chunk from a tree. Updates root if needed
- *  if the chunk is not a leave. It is replaced by the first left-most leave below.
- * 
- *
- *  inputs
- *      kmchunk_ptr chunk  -  pointer to chunk to be inserted
- *      kmchunk_ptr *root  -  pointer to the root address of the tree
- * 
- * */
-
-void kmalloc_tree_remove(ktchunk_ptr chunk, ktchunk_ptr *root) {
-    ktchunk_ptr replacement;
-
-    if(chunk == NULL || root == NULL)
-        return;
-
-    if(ktchunk_is_in_list(chunk)) {
-        if(chunk == *root) {
-            replacement = chunk->next;
-            ktchunk_replace_head(chunk, replacement);
-            *root = replacement;
-        }else if(ktchunk_is_in_tree(chunk)) {
-            replacement = chunk->next;
-            ktchunk_replace_head(chunk, replacement);
-            ktchunk_update_parent(chunk, replacement);
-        }else{
-            (chunk->prev)->next = chunk->next;
-            (chunk->next)->prev = chunk->prev;
-        }
-
-    } else if(ktchunk_is_leave(chunk)) {
-        if(chunk->parent != NULL){
-           ktchunk_update_parent(chunk, NULL); 
-        } else {
-            *root = NULL;
-        }
-    } else {
-        //replace node with first left-most leave below
-        replacement = chunk;
-        while(!ktchunk_is_leave(replacement)) {
-            if(replacement->left != NULL)
-                replacement = replacement->left;
+            if (first == kmstate.dVictim)
+            {
+                kmstate.dVictim = first;
+                kmstate.dVictimSize = new_size;
+            }
             else
-                replacement = replacement->right;
-        }
-        ktchunk_update_parent(replacement, NULL); 
-        replacement->left = chunk->left;
-        if(replacement->left != NULL)
-            replacement->left->parent = replacement;
-        
-        replacement->right = chunk->right;
-        if(replacement->right != NULL)
-            replacement->right->parent = replacement;
-        
-        replacement->parent = chunk->parent;
-        if(replacement->parent != NULL) {
-            ktchunk_update_parent(chunk, replacement); 
-        } else {
-            *root = replacement;
-        }
-
-
-    }
-}
-
-/****
- *  ktchunk_ptr kmalloc_tree_get_best_fit(size_t size, ktchunk_ptr root, int depth);
- * 
- *  Removes the best fitting chunk from the tree.
- *
- *  inputs
- *      size_t size        -  wanted chunksize
- *      kmchunk_ptr root  -  pointer to the root of the tree
- *      int depth          -  max depth of tree
- * 
- *  returns
- *      a ktchunk_ptr pointing to the best fitting chunk
- * 
- * */
-
-ktchunk_ptr kmalloc_tree_get_best_fit(size_t size, ktchunk_ptr root, int depth){
-
-    ktchunk_ptr cur, parent, smallest_chunk = NULL;
-    size_t smallest_size = MAX_SIZE_T;    
-
-    if(depth <= 0 || root == NULL)
-        return NULL;
-
-    cur = root;
-
-    while(cur != NULL) {
-        if(size == GETCHUNKSIZE(cur)){
-            return cur;
-        }
-
-        if(GETCHUNKSIZE(cur) > size){
-            if(smallest_chunk == NULL || GETCHUNKSIZE(cur) < smallest_size){
-                smallest_chunk = cur;
-                smallest_size = GETCHUNKSIZE(cur);
+            { //add consolidated chunk to bin
+                bin_chunk(first);
             }
         }
-        parent = cur;
-        if(size & (SIZE_T_ONE << (depth - 1)))
-            cur = cur->right;
+    }
+    else
+    {
+        first->header = first_size | PINUSE;
+        next->prev_foot = first_size;
+        next->header &= ~PINUSE;
+        if (first == kmstate.dVictim)
+        {
+            kmstate.dVictim = first;
+            kmstate.dVictimSize = first_size;
+        }
         else
-            cur = cur->left;
-        depth--;
-        if(depth < 0)   
-            break;
-    }
-
-    //if we end up here, we didn find an exact fit. so letś find the best fit
-
-    //first step up until we either found the smallest node, or until we could go right
-    while(parent->right == NULL || parent->right == cur) {
-        if(parent == smallest_chunk){
-            return parent;
+        { //add consolidated chunk to sbin
+            bin_chunk(first);
         }
-        if(parent->parent == NULL)
+    }
+}
+
+int try_expand_chunk(kmchunk_ptr chunk, size_t new_size)
+{
+    int result = -1;
+    size_t diff, free_size;
+    kmchunk_ptr new, next;
+
+    if(!IS_INUSE(chunk) || new_size < GETCHUNKSIZE(chunk))
+        return -1;
+
+    diff = new_size - GETCHUNKSIZE(chunk);
+    next = NEXTCHUNK(chunk);
+
+    if(!IS_INUSE(next) && GETCHUNKSIZE(next) >= diff){
+        //use next chunk and expand
+        free_size = GETCHUNKSIZE(next) - diff;
+        
+        if(free_size > MINCHUNKSIZE) {  //split of remainder
+            chunk->header = new_size | CINUSE | PREV_INUSE(chunk);
+            
+            new = CHUNKOFFSET(next, diff);
+            new->header = free_size | PINUSE;
+            CHUNKOFFSET(new, free_size)->prev_foot = free_size;
+
+            if(next == kmstate.topChunk){
+                    kmstate.topChunk = new;
+                    kmstate.topChunkSize = free_size;
+            } else if(next == kmstate.dVictim) {
+                kmstate.dVictim = new;
+                kmstate.dVictimSize = free_size;
+            } else {
+                unbin_chunk(next);
+                bin_chunk(new);
+            }
+        }else{
+            if(free_size > 0){      //remainder is too small to split off, so add it to the size
+                diff += free_size;
+                new_size += free_size;
+            }
+            chunk->header = new_size | CINUSE | PREV_INUSE(chunk);
+            
+            if(next == kmstate.topChunk){
+                    kmstate.topChunk = NEXTCHUNK(chunk);
+                    kmstate.topChunkSize = 0;
+            } else if(next == kmstate.dVictim) {
+                kmstate.dVictim = NULL;
+                kmstate.dVictimSize = 0;
+            } else {
+                unbin_chunk(next);
+            }               
+            next = NEXTCHUNK(chunk);
+            if(next->header) 
+                next->header |= PINUSE;
+        }
+        result = 0;
+    }
+    return result;
+}
+
+void *split_top(size_t chunksize, int allow_expand)
+{
+    kmchunk_ptr chunk = NULL;
+    size_t split_size;
+
+    if (kmstate.topChunkSize < chunksize)
+    {
+        if (!allow_expand || grow_top(chunksize - kmstate.topChunkSize))
             return NULL;
-        cur = parent;
-        parent = parent->parent;
     }
 
-    //if we are here, parent->right holds a subtree with fitting nodes. get the smallest.
-    cur = kmalloc_tree_get_smallest(parent->right);
-    return cur;
+    if (kmstate.topChunkSize - chunksize < MINCHUNKSIZE)
+    { //exhaust top
+        chunk = kmstate.topChunk;
+        chunk->header = chunksize | PINUSE | CINUSE;
+        kmstate.topChunk = NEXTCHUNK(chunk);
+        kmstate.topChunkSize = 0;
+        kmstate.topChunk->header = 0;   //topchunk is now set to the dummy chunk. 
+                                        //reset itś header to deal with a incresed heap
+    }
+    else
+    { //split top
+        split_size = kmstate.topChunkSize - chunksize;
+        chunk = kmstate.topChunk;
+        chunk->header = chunksize | PINUSE | CINUSE; //previous chunk cannot be a free chunk, so PINUSE is set
+        kmstate.topChunk = CHUNKOFFSET(chunk, chunksize);
+        kmstate.topChunk->header = split_size | PINUSE;
+        kmstate.topChunkSize = split_size;
+        NEXTCHUNK(kmstate.topChunk)->prev_foot = split_size;
+    }
+    return CHUNK_PAYLOAD(chunk);
 }
 
-/****
- *  ktchunk_ptr kmalloc_tree_get_smallest(ktchunk_ptr root);
- * 
- *  Removes the smallest chunk from the tree.
- *
- *  inputs
- *      kmchunk_ptr root  -  pointer to the root of the tree
- * 
- *  returns
- *      a ktchunk_ptr pointing to the smallest chunk
- * 
- * */
+
+void shrink_top(void)
+{
+    size_t decrease, newsize;
+    kmchunk_ptr dummy;
+
+    //check if we need to schrink
+    //shrink only when top chunk is larger than HEAP_SHRINK_TRESHOLD, but leave a top chunk of at least HEAP_SHRINK_TRESHOLD big
+    //dont schrink below initial heap size and align the heap size on boundaries (could be page sizes) defined by HEAP_SIZE_ALIGN.
+
+    if (kmstate.topChunkSize > HEAP_SHRINK_TRESHOLD && kmstate.heap_size >= kmstate.initial_heap_size)
+    {
+        decrease = kmstate.topChunkSize - HEAP_SHRINK_TRESHOLD;
+        newsize = kmstate.heap_size - decrease;
+        if(newsize < kmstate.initial_heap_size)
+            newsize = kmstate.initial_heap_size;
+
+        //align heapsize
+        newsize = (newsize + (HEAP_SIZE_ALIGN - 1)) & ~(HEAP_SIZE_ALIGN - 1);
+        decrease = kmstate.heap_size - newsize;
+
+        if(decrease > 0){
+            if(decrease > HALF_MAX_SIZE_T)        //prevent signed overflow
+                decrease = HALF_MAX_SIZE_T & ~(HEAP_SIZE_ALIGN - 1);
 
 
-ktchunk_ptr kmalloc_tree_get_smallest(ktchunk_ptr chunk) {
-    ktchunk_ptr cur, smallest_chunk = NULL;
-    size_t smallest_size;
-    
-    if(chunk == NULL)
-        return NULL;
-    
-    cur = chunk;
-    smallest_chunk = cur;
-    smallest_size = GETCHUNKSIZE(cur);
+            if(ACTION_SBRK((int) -decrease) != (void *) -1){
+                //heap has decreased. change top
+                kmstate.heap_size -= decrease;
+                kmstate.topChunkSize -= decrease;
+                if(kmstate.topChunkSize){
+                    kmstate.topChunk->header = kmstate.topChunkSize | PINUSE;
+                    dummy = NEXTCHUNK(kmstate.topChunk);
+                    dummy->prev_foot = kmstate.topChunkSize;
+                    dummy->header = 0;
+                } else {
+                    kmstate.topChunk->header = 0;
+                }
+            }
 
-    while(!ktchunk_is_leave(cur)){
-        cur = (cur->left != NULL) ? cur->left : cur->right;
-        if(GETCHUNKSIZE(cur) < smallest_size){
-            smallest_chunk = cur;
-            smallest_size = GETCHUNKSIZE(cur);
         }
     }
-
-    return smallest_chunk;
 }
+int grow_top(size_t increment) {
+    kmchunk_ptr dummy;
+
+
+    increment = (increment + (HEAP_SIZE_ALIGN - 1)) & ~(HEAP_SIZE_ALIGN - 1);
+
+    if(increment > HALF_MAX_SIZE_T)        //prevent signed overflow
+        return -1;
+
+    if(ACTION_SBRK((intptr_t) increment) != (void *) -1) {
+        kmstate.heap_size += increment;
+        kmstate.topChunkSize += increment;
+        kmstate.topChunk->header = kmstate.topChunkSize | PINUSE;
+        dummy = NEXTCHUNK(kmstate.topChunk);
+        dummy->prev_foot = kmstate.topChunkSize;
+        dummy->header = 0;
+
+        return 0;
+    }
+
+    return -1; 
+     
+}
+
+void *allocate_dv(size_t chunksize)
+{
+    kmchunk_ptr chunk = NULL;
+    size_t split_size;
+
+    if (kmstate.dVictim == NULL || kmstate.dVictimSize < chunksize)
+        return NULL;
+
+    if (kmstate.dVictimSize - chunksize < MINCHUNKSIZE)
+    { //exhaust dv
+        chunk = kmstate.dVictim;
+        chunk->header |= CINUSE;
+        NEXTCHUNK(chunk)->header |= PINUSE;
+        kmstate.dVictim = NULL;
+        kmstate.dVictimSize = 0;
+    }
+    else
+    { //split dv
+        split_size = kmstate.dVictimSize - chunksize;
+        chunk = kmstate.dVictim;
+        chunk->header = chunksize | PINUSE | CINUSE; //previous chunk cannot be a free chunk, so PINUSE is set
+        kmstate.dVictim = CHUNKOFFSET(chunk, chunksize);
+        kmstate.dVictim->header = split_size | PINUSE;
+        kmstate.dVictimSize = split_size;
+        NEXTCHUNK(kmstate.dVictim)->prev_foot = split_size;
+    }
+    return CHUNK_PAYLOAD(chunk);
+}
+
+void replace_dv(kmchunk_ptr new)
+{
+    if (kmstate.dVictim != NULL)
+    {
+        bin_chunk(kmstate.dVictim);
+    }
+
+    kmstate.dVictim = new;
+    kmstate.dVictimSize = GETCHUNKSIZE(new);
+}
+
+void bin_chunk(kmchunk_ptr chunk)
+{
+    size_t index, size = GETCHUNKSIZE(chunk);
+    ktchunk_ptr tchunk;
+    if (size < MIN_LARGE_SIZE)
+    {
+        index = small_index(size);
+        kmalloc_dllist_add(chunk, &kmstate.sbin[index]);
+        kmstate.sbinmap |= (1U << index);
+    }
+    else
+    {
+        index = calc_tbin(size);
+        tchunk = (ktchunk_ptr)chunk;
+        tchunk->index = index;
+        kmalloc_tree_insert(tchunk, &kmstate.tbin[index], TBIN_DEPTH(index));
+        kmstate.tbinmap |= (1U << index);
+    }
+}
+
+void unbin_chunk(kmchunk_ptr chunk)
+{
+    size_t index, size = GETCHUNKSIZE(chunk);
+    if (size < MIN_LARGE_SIZE)
+    {
+        index = small_index(size);
+        kmalloc_dllist_remove_intern(chunk, &kmstate.sbin[index]);
+        if (kmstate.sbin[index] == NULL)
+            kmstate.sbinmap &= ~(SIZE_T_ONE << index);
+    }
+    else
+    {
+        index = ((ktchunk_ptr)chunk)->index;
+        kmalloc_tree_remove((ktchunk_ptr)chunk, &kmstate.tbin[index]);
+        if (kmstate.tbin[index] == NULL)
+            kmstate.tbinmap &= ~(SIZE_T_ONE << index);
+    }
+}
+
+void *split_sbin(binmap_t index, size_t chunksize)
+{
+
+    kmchunk_ptr chunk, new;
+    size_t split_size;
+
+    chunk = kmalloc_dllist_remove(&kmstate.sbin[index]);
+
+    if (kmstate.sbin[index] == NULL)
+        kmstate.sbinmap &= ~(SIZE_T_ONE << index);
+    if (chunk == NULL)
+        return NULL;
+
+    split_size = GETCHUNKSIZE(chunk) - chunksize;
+    chunk->header = chunksize | PINUSE | CINUSE; //previous chunk cannot be a free chunk, so PINUSE is set
+
+    new = CHUNKOFFSET(chunk, chunksize);
+    new->header = split_size | PINUSE;
+    NEXTCHUNK(new)->prev_foot = split_size;
+
+    replace_dv(new);
+
+    return CHUNK_PAYLOAD(chunk);
+}
+
+void *allocate_sbin(binmap_t index)
+{
+
+    kmchunk_ptr chunk = kmalloc_dllist_remove(&kmstate.sbin[index]);
+    if (kmstate.sbin[index] == NULL)
+        kmstate.sbinmap &= ~(SIZE_T_ONE << index);
+    if (chunk == NULL)
+        return NULL;
+
+    chunk->header |= CINUSE;
+    NEXTCHUNK(chunk)->header |= PINUSE;
+    return CHUNK_PAYLOAD(chunk);
+}
+
+void *allocate_tchunk(ktchunk_ptr chunk, size_t wanted_size)
+{
+    kmchunk_ptr new;
+    size_t splitsize;
+
+    if (chunk == NULL)
+        return NULL;
+
+    kmalloc_tree_remove(chunk, &kmstate.tbin[chunk->index]);
+    if (!kmstate.tbin[chunk->index])
+        kmstate.tbinmap &= ~(1U << chunk->index);
+
+    if (GETCHUNKSIZE(chunk) - wanted_size > MINCHUNKSIZE)
+    {
+        //split
+        splitsize = GETCHUNKSIZE(chunk) - wanted_size;
+        new = CHUNKOFFSET(chunk, wanted_size);
+        chunk->header = wanted_size | CINUSE | PINUSE; //since chunk was free, prev chunk is always in use
+        new->header = splitsize | PINUSE;
+        NEXTCHUNK(new)->prev_foot = splitsize;
+        replace_dv(new);
+    }
+    else
+    {
+        chunk->header |= CINUSE;
+        NEXTCHUNK(chunk)->header |= PINUSE;
+    }
+
+    return CHUNK_PAYLOAD(chunk);
+}
+
+void *allocate_smallest_tbin(size_t wanted_size)
+{
+
+    binmap_t tbin = calc_leftbin(0, kmstate.tbinmap);
+
+    ktchunk_ptr chunk = kmalloc_tree_get_smallest(kmstate.tbin[tbin]);
+
+    return allocate_tchunk(chunk, wanted_size);
+}
+

@@ -1,6 +1,5 @@
 #include "testsuite.h"
 #include "kstdlib/malloc_free/kmalloc.h"
-#include "kstdlib/malloc_free/kmalloc_util.h"
 #include <stdio.h>
 
 #define REPORT(str, addr, heap)                                                                       \
@@ -176,6 +175,8 @@ int check_heap_layout(test_chunkinfo *expected,
     ktchunk_ptr tchunk;
     kmchunk_ptr listchunk, liststart;
     test_chunkinfo test;
+    int dv_found = 0;
+    int tc_found = 0;
 
     for (index = 0; index < testsize; index++)
     {
@@ -262,12 +263,14 @@ int check_heap_layout(test_chunkinfo *expected,
                 break;
 
             case TC:
+                tc_found = 1;
                 if (kmstate.topChunkSize != size)
                     REPORT("Topchunk size mismatch in kmstate", chunk, heap);
                 if (kmstate.topChunk != chunk)
                     REPORT("Topchunk pointer mismatch in kmstate", chunk, heap);
                 break;
             case DV:
+                dv_found = 1;
                 if (kmstate.dVictimSize != size)
                     REPORT("dVictim size mismatch in kmstate", chunk, heap);
                 if (kmstate.dVictim != chunk)
@@ -280,6 +283,14 @@ int check_heap_layout(test_chunkinfo *expected,
         }
         chunk = (kmchunk_ptr)((size_t)chunk + size);
     }
+    if(kmstate.dVictim != NULL && dv_found == 0)
+        REPORT("dVictim set but was not specified", chunk, heap);
+    
+    if(kmstate.dVictimSize > 0 && dv_found == 0)
+        REPORT("dVictim size is nonzero but no DV specified", chunk, heap);
+
+    if(kmstate.topChunkSize > 0 && tc_found == 0)
+        REPORT("Top Chunk size is nonzero but no Top Chunk specified", chunk, heap);
 
     return 0;
 }

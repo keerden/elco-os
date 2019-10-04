@@ -6,7 +6,6 @@
 #include <kstdlib.h>
 #include <libk.h>
 #include "kstdlib/malloc_free/kmalloc.h"
-#include "kstdlib/malloc_free/kmalloc_util.h"
 
 #define HEAPSIZE 12288
 
@@ -67,10 +66,15 @@ void test_MallocMaxSize(void)   //allocate all space within the heap
     TEST_ASSERT_FALSE(check_heap_layout(expected, 2, state, heap, 512));
     TEST_ASSERT_FALSE(check_bins(heap,  512, state));
     
+    //debugDump("exhausted top", heap, 512);
+
     
     //now check if free correctly increases the empty top chunk
 
     kfree(mem);
+
+    //debugDump("free exhausted top", heap, 512);
+
     TEST_ASSERT_EQUAL(0, cb_ok);
 
     state = kmalloc_debug_getstate();

@@ -5,8 +5,7 @@
 
 #include <kstdlib.h>
 #include "kstdlib/malloc_free/kmalloc.h"
-#include "kstdlib/malloc_free/kmalloc_util.h"
-
+#include "kstdlib/malloc_free/kmalloc_dllist.h"
 
 void test_ListAddSingle(void)
 {

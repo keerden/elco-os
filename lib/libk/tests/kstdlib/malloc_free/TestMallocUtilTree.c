@@ -5,8 +5,7 @@
 
 #include <kstdlib.h>
 #include "kstdlib/malloc_free/kmalloc.h"
-#include "kstdlib/malloc_free/kmalloc_util.h"
-
+#include "kstdlib/malloc_free/kmalloc_tree.h"
 
 #define testTreeChunk(chunk, prnt,lft,rght,nxt,pre) { \
     TEST_ASSERT_EQUAL_PTR_MESSAGE((prnt), (chunk).parent, "parent field mismatch"); \

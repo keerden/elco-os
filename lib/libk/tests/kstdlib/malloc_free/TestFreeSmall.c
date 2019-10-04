@@ -6,7 +6,6 @@
 #include <kstdlib.h>
 #include <libk.h>
 #include "kstdlib/malloc_free/kmalloc.h"
-#include "kstdlib/malloc_free/kmalloc_util.h"
 
 #define HEAPSIZE 256
 
@@ -258,7 +257,7 @@ void test_SmallFreeDvUnused(void)
                                   {TC, HEAPSIZE - DUMMYSIZE - 176, NULL}};
 
     TEST_ASSERT_FALSE(check_heap_integrity(heap, HEAPSIZE));
-    TEST_ASSERT_FALSE(check_heap_layout(expected, 3, state, heap, HEAPSIZE));
+    TEST_ASSERT_FALSE(check_heap_layout(expected, 4, state, heap, HEAPSIZE));
     TEST_ASSERT_FALSE(check_bins(heap,  HEAPSIZE, state));
 }
 

@@ -9,7 +9,7 @@
 
 
 /* decriptor table sizes */
-#define GDT_SIZE 5      
+#define GDT_SIZE 6      
 #define IDT_SIZE 256
 
 /* interrupt count */
@@ -25,12 +25,14 @@
 #define GDT_RING0_DATA_INDEX    2
 #define GDT_RING3_CODE_INDEX    3
 #define GDT_RING3_DATA_INDEX    4
+#define GDT_TSS_INDEX           5
 
 #define GDT_DUMMY       (GDT_DUMMY_INDEX * GDT_DESCR_SIZE)
 #define GDT_RING0_CODE  (GDT_RING0_CODE_INDEX * GDT_DESCR_SIZE)
 #define GDT_RING0_DATA  (GDT_RING0_DATA_INDEX * GDT_DESCR_SIZE)
 #define GDT_RING3_CODE  (GDT_RING3_CODE_INDEX * GDT_DESCR_SIZE)
 #define GDT_RING3_DATA  (GDT_RING3_DATA_INDEX * GDT_DESCR_SIZE)
+#define GDT_TSS         (GDT_TSS_INDEX * GDT_DESCR_SIZE)
 
 
 /* GDT flags */
@@ -44,6 +46,7 @@
 #define GDT_ACC_DC      0x04U
 #define GDT_ACC_RW      0x02U
 #define GDT_ACC_AC      0x01U
+#define GDT_ACC_TSS_TYPE 0x09U
 
 #define GDT_FLAG_GRAN4K 0x8U
 #define GDT_FLAG_32BIT  0x4U

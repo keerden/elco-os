@@ -6,23 +6,27 @@
 
 
 
-void gdt_initialize(void);
-void idt_initialize(void);
-void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
-void idt_set_entry(int index, uint32_t offset, uint16_t selector, uint8_t attr);
+static void gdt_initialize(void);
+static void idt_initialize(void);
+static void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags);
+static void idt_set_entry(int index, uint32_t offset, uint16_t selector, uint8_t attr);
 
 struct gdt_pointer gdt_p;
 struct gdt_entry gdt[GDT_SIZE];
 struct idt_pointer idt_p;
 struct idt_entry idt[IDT_SIZE];
+struct tss_entry tss;
 
 void arch_init_tables(void) {
     gdt_initialize();
     idt_initialize();
+    tss.ss0 = GDT_TSS;
+    tss.esp0 = 0;
+    tss_flush();
 }
 
 
-void gdt_initialize(void) {
+static void gdt_initialize(void) {
     gdt_p.offset    =   (uint32_t) &gdt;
     gdt_p.size = (sizeof(struct gdt_entry) * GDT_SIZE) - 1;
 
@@ -50,12 +54,18 @@ void gdt_initialize(void) {
                     0xFFFFF, 
                     GDT_ACC_PRESENT | GDT_ACC_PRIV3 | GDT_ACC_RESV | GDT_ACC_RW,
                     GDT_FLAG_GRAN4K | GDT_FLAG_32BIT
+                ); 
+    gdt_set_entry(  GDT_TSS_INDEX,
+                    (uint32_t) &tss,
+                    sizeof(tss), 
+                    GDT_ACC_PRESENT | GDT_ACC_PRIV0 | GDT_ACC_TSS_TYPE,
+                    GDT_FLAG_GRAN4K
                 );  
     gdt_flush(&gdt_p);            
                
 }
 
-void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags) {
+static void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags) {
     struct gdt_entry entry;
     if(index >= GDT_SIZE)
         return;
@@ -71,7 +81,7 @@ void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uin
     gdt[index] = entry;
 }
 
-void idt_initialize(void) {
+static void idt_initialize(void) {
     idt_p.base    =   (uint32_t) &idt;
     idt_p.limit = (sizeof(struct idt_entry) * IDT_SIZE) - 1;
     kmemset(&idt, 0, (sizeof(struct idt_entry) * IDT_SIZE));
@@ -131,7 +141,7 @@ void idt_initialize(void) {
                
 }
 
-void idt_set_entry(int index, uint32_t offset, uint16_t selector, uint8_t attr) {
+static void idt_set_entry(int index, uint32_t offset, uint16_t selector, uint8_t attr) {
     struct idt_entry entry;
     if(index >= IDT_SIZE)
         return;

@@ -53,10 +53,10 @@ void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 	arch_init_tables();
 	arch_init_interrupts();
 	memory_init();
+	multitasking_init();
 
-	
+
 }
-
 
 void kernel_main(void)
 {

@@ -31,6 +31,7 @@ inline void outportb (uint16_t _port, uint8_t _data)
 /* i386.s */
 extern void gdt_flush(struct gdt_pointer* ptr);
 extern void idt_flush(struct idt_pointer* ptr);
+extern void tss_flush(void);
 
 
 extern void isr0 (void);

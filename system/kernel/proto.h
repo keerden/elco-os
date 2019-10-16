@@ -13,6 +13,11 @@ int memory_free_page(vir_bytes vaddr);
 int memory_map_addr(vir_bytes vaddr, phys_bytes frame, int usermode, int writable);
 int memory_unmap_addr(vir_bytes vaddr);
 
+/* tasks.c */
+void multitasking_init(void);
+void task_create(void * starting_point);
+void switch_to_task(struct process *next_thread);
+
 
 /* terminal.c */
 
@@ -22,7 +27,6 @@ void terminal_write(const char* data, size_t size);
 void terminal_writestring(const char* data);
 void terminal_scroll(bool force);
 void terminal_print_logo(void);
-
 
 #ifndef _KERNEL_DEBUG
 #define kdebug(...)

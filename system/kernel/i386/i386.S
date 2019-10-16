@@ -22,7 +22,16 @@ gdt_flush2:
 idt_flush:
     movl    4(%esp), %eax   # Get the pointer to the IDT, passed as a parameter.
     lidt    (%eax)          # Load the new IDT pointer
-    ret               
+    ret            
+
+
+.global tss_flush
+.type tss_flush, @function
+tss_flush:
+    mov $(GDT_TSS), %ax     
+    ltr    %ax               
+    ret  
+
 # macro for an ISR that receives an errorcode
 .macro ISR_ERRCODE num
 .global isr\num

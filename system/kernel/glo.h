@@ -5,8 +5,10 @@
 
 
 extern struct kinfo kinfo;
+extern struct process *current_proc;
 
 
+extern pointer_t boot_page_directory;
 
 /* labels defined by linker */
 

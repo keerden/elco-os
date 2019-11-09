@@ -1,4 +1,6 @@
 #include "kernel.h"
+#include "task.h"
+
 #include <libk.h>
 #include <kstring.h>
 #include <kstdlib.h>
@@ -58,16 +60,58 @@ void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 
 }
 
+struct task *tsk1;
+struct task *tsk2;
+
+void task1(void){
+    int a = 0;
+    while(1){
+        arch_display_number(a++, 0, 15);
+     //   kprintf("Task1 \n");
+        if(a % 1000 == 0){
+            pick_task(tsk2);
+			asm volatile("int $128");
+		}
+    }
+}
+void task2(void){
+    int a = 0;
+    while(1){
+      //  kprintf("Task2 \n");
+        arch_display_number(a++, 30, 15);
+        pick_task(tsk1);
+		asm volatile("int $128");
+    }
+}
+
 void kernel_main(void)
 {
  	print_logo();
 	kdebug("started\n");
-	arch_intr_enable();
-//	init_timer(60);
+
+//	arch_intr_enable();
+	init_timer(60);
+
+	tsk1 = create_kernel_task(task1, 256);
+	tsk2 = create_kernel_task(task2, 256);
+
+	pick_task(tsk1);
+	resume();
 
 	while(1);
 
 }
+
+
+
+
+
+
+
+
+
+
+
 
 void kerror(const char* error) {
 	kprintf("Kerror: %s\n", error);

@@ -3,9 +3,9 @@
 #include <kstdint.h>
 
 /* interrupts.c */
-void exception_set_handler(int intr_no, void (*handler)(intr_stack_t *r));
+void exception_set_handler(int intr_no, void (*handler)(uint32_t error));
 void exception_clear_handler(int intr_no);
-void irq_set_handler(int intr_no, void (*handler)(intr_stack_t *r));
+void irq_set_handler(int intr_no, void (*handler)(void));
 void irq_clear_handler(int intr_no);
 
 /* pic.c */
@@ -13,6 +13,9 @@ void pic_init(void);
 void pic_eoi(uint8_t irq);
 void pic_set_mask(uint8_t irq);
 void pic_clear_mask(uint8_t irq);
+
+
+struct tss_entry tss; 
 
 
 inline uint8_t inportb (uint16_t _port)
@@ -83,5 +86,7 @@ extern void irq12(void);
 extern void irq13(void);
 extern void irq14(void);
 extern void irq15(void);
+
+extern void kernel_call(void);
 
 #endif

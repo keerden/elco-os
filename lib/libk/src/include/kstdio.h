@@ -9,6 +9,24 @@ extern "C" {
 #include <kstdarg.h>
 
 
+//typedef FILE
+//typedef fpos_t
+
+
+// #define _IOFBF
+// #define _IOLBF
+// #define _IONBF
+
+/* IO Buffer Size */
+#define BUFSIZ 512
+
+// #define EOF
+// #define FOPEN_MAX
+// #define FILENAME_MAX
+
+
+
+
 int kprintf(const char* __restrict, ...);
 int kputchar(int);
 int kputs(const char*);

@@ -40,6 +40,36 @@ void arch_init_display(void)
 	display_initialized = true;
 }
 
+void arch_display_number(int num, size_t x, size_t y) {
+	char buffer[10];
+	int i = 0;
+
+	if(x >= VGA_WIDTH || y >= VGA_HEIGHT)
+		return;
+
+	if(num < 0){
+		num = -num;
+		display_putentryat('-', display_color, x++, y);
+	}
+
+	do {
+		buffer[i] = '0' + (char) (num % 10);
+		i++;
+		num = num / 10;
+	} while (num > 0);
+
+	while(i){
+		if(x == VGA_WIDTH){
+			x = 0;
+			y++;
+			if(y == VGA_HEIGHT)
+				return;
+		}
+		i--;
+		display_putentryat(buffer[i], display_color, x++, y);
+	}
+}
+
 void arch_display_putc(char c)
 {
 	size_t x;

@@ -9,11 +9,11 @@
 
 
 
-void exception_handler(intr_stack_t *stack);
-void irq_handler(intr_stack_t *stack);
+void exception_handler(uint32_t int_no, uint32_t error);
+void irq_handler(uint32_t int_no);
 
-void (*exception_handlers[EXCEPTION_COUNT])(intr_stack_t *r);
-void (*irq_handlers[IRQ_COUNT])(intr_stack_t *r);
+void (*exception_handlers[EXCEPTION_COUNT])(uint32_t error);
+void (*irq_handlers[IRQ_COUNT])(void);
 
 
 
@@ -26,7 +26,7 @@ void arch_init_interrupts(void) {
 }
 
 
-void exception_set_handler(int intr_no, void (*handler)(intr_stack_t *r)) {
+void exception_set_handler(int intr_no, void (*handler)(uint32_t error)) {
     if (intr_no >= EXCEPTION_COUNT)
         return;
     exception_handlers[intr_no] = handler;
@@ -39,20 +39,19 @@ void exception_clear_handler(int intr_no) {
 }
 
 
-void exception_handler(intr_stack_t *stack)
+void exception_handler(uint32_t int_no, uint32_t error)
 {
-    void (*handler)(intr_stack_t *r);
-    uint32_t int_no = stack->int_no;
+    void (*handler)(uint32_t error);
     handler = exception_handlers[int_no];
     if(handler != NULL){
-        handler(stack);
+        handler(error);
     }else{
-           kprintf("exception no: %u \n");
+           kprintf("exception no: %u error: %u\n", int_no, error);
            kpanic("unhandled exception!");
     }
 } 
 
-void irq_set_handler(int intr_no, void (*handler)(intr_stack_t *r)) {
+void irq_set_handler(int intr_no, void (*handler)(void)) {
     if (intr_no >= IRQ_COUNT)
         return;
     irq_handlers[intr_no] = handler;
@@ -65,12 +64,11 @@ void irq_clear_handler(int intr_no) {
     pic_set_mask((uint8_t) intr_no);
 }
 
-void irq_handler(intr_stack_t *stack) {
-    void (*handler)(intr_stack_t *r);
-    uint32_t int_no = stack->int_no;
+void irq_handler(uint32_t int_no) {
+    void (*handler)(void);
     handler = irq_handlers[int_no];
     if(handler != NULL){
-        handler(stack);
+        handler();
     }else{
            kpanic("unhandled IRQ!");
     }
@@ -83,7 +81,7 @@ void irq_handler(intr_stack_t *stack) {
 uint32_t tick = 0;
 
 
-static void timer_callback(intr_stack_t *r)
+static void timer_callback(void)
 {
     tick++;
     if(tick > 60){

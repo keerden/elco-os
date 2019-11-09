@@ -8,6 +8,7 @@
 #define _ARCH_INTERFACE_H
 
 #include <kstdint.h>
+#include <kstddef.h>
 
 enum arch_display_color
 {
@@ -35,6 +36,7 @@ void arch_init_tables(void);
 void arch_init_interrupts(void);
 
 void arch_display_putc(char c); 
+void arch_display_number(int num, size_t x, size_t y); 
 void arch_display_setcolor(enum arch_display_color fg, enum arch_display_color bg); 
 
 void init_timer(uint32_t frequency);

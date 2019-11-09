@@ -20,7 +20,7 @@ struct tss_entry tss;
 void arch_init_tables(void) {
     gdt_initialize();
     idt_initialize();
-    tss.ss0 = GDT_TSS;
+    tss.ss0 = GDT_RING0_DATA;
     tss.esp0 = 0;
     tss_flush();
 }
@@ -136,6 +136,7 @@ static void idt_initialize(void) {
     idt_set_entry(46, (uint32_t) irq14, GDT_RING0_CODE, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
     idt_set_entry(47, (uint32_t) irq15, GDT_RING0_CODE, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
 
+    idt_set_entry(128, (uint32_t) kernel_call, GDT_RING0_CODE, IDT_ATR_TYPE_32IG | IDT_ATR_PRES);
 
     idt_flush(&idt_p);            
                

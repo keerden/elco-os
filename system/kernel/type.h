@@ -32,11 +32,6 @@ struct kinfo {
 
 };
 
-struct process {
-    vir_bytes  stack_pointer;
-    phys_bytes page_dir;  
-    int pid;
-       
-};
+
 
 #endif

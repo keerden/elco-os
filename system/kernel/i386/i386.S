@@ -32,15 +32,24 @@ tss_flush:
     ltr    %ax               
     ret  
 
+
+/*********** Interrupt macros ***************/
+
+.extern exception_handler
+.extern irq_handler
+
 # macro for an ISR that receives an errorcode
 .macro ISR_ERRCODE num
 .global isr\num
 isr\num :
     cli
+    call save
+    push %eax
     push $\num
-    jmp isr_common_stub
-
+    call exception_handler
+    jmp resume
 .endm
+
 
 # macro for an ISR that receives no errorcode and therefore pushes a dummy byte
 .macro ISR_NOERRCODE num
@@ -48,9 +57,11 @@ isr\num :
 isr\num :
     cli
     push $0
+    call save
+    push %eax
     push $\num
-    jmp isr_common_stub
-
+    call exception_handler
+    jmp resume
 .endm
 
 # macro for an IRQ that is called by the PIC
@@ -59,8 +70,10 @@ isr\num :
 irq\num :
     cli
     push $0
+    call save
     push $\num
-    jmp irq_common_stub
+    call irq_handler
+    jmp resume
 .endm
 
 # start of the intvect section
@@ -115,68 +128,67 @@ IRQ 13
 IRQ 14
 IRQ 15
 
+.global kernel_call
+.extern nested_intr
+.extern next_task
+.extern current_task
 
+kernel_call:
+    cli
+    push $0
+    call save
 
-.extern exception_handler
+    # do stuff
 
-# This is our common ISR stub. It saves the processor state, sets
-# up for kernel mode segments, calls the C-level fault handler,
-# and finally restores the stack frame.
-isr_common_stub:
+    jmp resume     
+
+# switch to kernel stack and do stuff
+.global save
+save:
     pusha                   # Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
     push %ds                    
     push %es
     push %fs
     push %gs
 
-    mov $(GDT_RING0_DATA), %ax          # load the kernel data segment descriptor
-    mov %ax, %ds
-    mov %ax, %es
-    mov %ax, %fs
-    mov %ax, %gs
-    mov %esp, %eax
-    push %eax               # Push us the stack
+    mov $(GDT_RING0_DATA), %eax          # load the kernel data segment descriptor
+    mov %eax, %ds
+    mov %eax, %es
+    mov %eax, %fs
+    mov %eax, %gs
 
-    call exception_handler
+    # save the stack pointer as tasks context
+    mov current_task, %eax  # load addresss
+    mov %esp, (%eax)        # save pointer
 
-    pop %eax
+    mov (13*4)(%esp), %eax      # save error code
+    mov (12*4)(%esp), %edx      # save return addr
+
+    incl nested_intr
+    jnz 0f
+    mov $kernel_stack_top, %esp
+0:
+    jmp *%edx                    # return with error coder in eax
+
+.global resume
+resume:
+
+    # check for kernel re-entry
+    cmpl $0, nested_intr
+    jne 0f
+
+    # load task
+    mov next_task, %esi     # esi = address of the next task's struct = pointer to context
+    mov %esi, current_task
+    mov (%esi) , %esp       # load context, pointed to by esi 
+0:
+
+    decl nested_intr
+
     pop %gs
     pop %fs
     pop %es
     pop %ds
     popa
-    add  $8, %esp     # Cleans up the pushed error code and pushed ISR number
-    iret              # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
-
-.extern irq_handler
-
-# This is our common IRQ stub. It saves the processor state, sets
-# up for kernel mode segments, calls the C-level irq handler,
-# and finally restores the stack frame.
-irq_common_stub:
-    pusha                   # Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
-    push %ds                    
-    push %es
-    push %fs
-    push %gs
-
-    mov $(GDT_RING0_DATA), %ax          # load the kernel data segment descriptor
-    mov %ax, %ds
-    mov %ax, %es
-    mov %ax, %fs
-    mov %ax, %gs
-    mov %esp, %eax
-    push %eax               # Push us the stack
-
-    call irq_handler 
-  
-    pop %eax
-    pop %gs
-    pop %fs
-    pop %es
-    pop %ds
-    popa
-    add  $8, %esp     # Cleans up the pushed error code and pushed ISR number
-    iret              # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
-
-
+    add  $8, %esp     # Cleans up the pushed error code and return addr
+    iret              # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP

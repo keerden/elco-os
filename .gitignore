@@ -36,3 +36,4 @@ build/
 # Debug files
 *.dSYM/
 *.map
+bx_enh_dbg.ini

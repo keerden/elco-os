@@ -98,18 +98,11 @@ void kernel_main(void)
 	pick_task(tsk1);
 	resume();
 
+	//resume() never returns
+
 	while(1);
 
 }
-
-
-
-
-
-
-
-
-
 
 
 

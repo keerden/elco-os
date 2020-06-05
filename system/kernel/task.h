@@ -10,6 +10,11 @@ struct task {
     void* stack_space;
     size_t stack_size;
 
+    int priority;
+    
+
+
+
     int pid;
 
        

@@ -138,7 +138,7 @@ kernel_call:
     push $0
     call save
 
-    # do stuff
+    # TODO: stuff
 
     jmp resume     
 

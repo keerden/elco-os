@@ -71,7 +71,8 @@ struct task *create_kernel_task(void * entry_point, size_t stack_size)
 
             context->ebp = sp;
             context->eip = (uint32_t) entry_point;
-            context->eflags = 0x0202u; //0x0202 for ints enabled, 0x3202 for usermode
+            //TODO: replace 'magic' number
+            context->eflags = 0x0202u; //0x0202 for ints enabled, 0x3202 for usermode     
 
             tsk->context = context;
 

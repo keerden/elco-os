@@ -128,17 +128,26 @@ IRQ 13
 IRQ 14
 IRQ 15
 
+.global do_kernel_call
 .global kernel_call
+.extern handle_kernel_call # void handle_kernel_call(int param)
 .extern nested_intr
 .extern next_task
 .extern current_task
 
+do_kernel_call:     # do_kernel_call(int)
+    mov (4)(%esp), %eax
+    int $128
+    ret
+
 kernel_call:
     cli
-    push $0
+    push %eax
     call save
 
-    # TODO: stuff
+    push %eax   # pass syscall parameter
+    call handle_kernel_call
+    pop  %eax
 
     jmp resume     
 

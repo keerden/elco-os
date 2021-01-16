@@ -39,7 +39,7 @@ void arch_display_putc(char c);
 void arch_display_number(int num, size_t x, size_t y); 
 void arch_display_setcolor(enum arch_display_color fg, enum arch_display_color bg); 
 
-void init_timer(uint32_t frequency);
+void arch_timer_init(uint32_t frequency, void (*callback)(void));
 
 inline void arch_intr_enable(void){
     asm volatile("sti");

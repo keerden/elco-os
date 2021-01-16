@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "clock.h"
 #include "task.h"
 
 #include <libk.h>
@@ -62,25 +63,32 @@ void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 
 struct task *tsk1;
 struct task *tsk2;
+struct task *tsk3;
 
 void task1(void){
     int a = 0;
     while(1){
         arch_display_number(a++, 0, 15);
-     //   kprintf("Task1 \n");
-        if(a % 1000 == 0){
-            pick_task(tsk2);
-			asm volatile("int $128");
-		}
+		do_kernel_call(0);
+		
     }
 }
 void task2(void){
     int a = 0;
     while(1){
-      //  kprintf("Task2 \n");
-        arch_display_number(a++, 30, 15);
-        pick_task(tsk1);
-		asm volatile("int $128");
+        arch_display_number(a++, 20, 15);
+		do_kernel_call(500);
+		
+    }
+}
+
+void task3(void){
+    int a = 0;
+    while(1){
+        arch_display_number(a++, 40, 15);
+    	if(a % 100000 == 0){
+			do_kernel_call(2000);
+		}
     }
 }
 
@@ -90,12 +98,16 @@ void kernel_main(void)
 	kdebug("started\n");
 
 //	arch_intr_enable();
-	init_timer(60);
+	clock_setup();
 
 	tsk1 = create_kernel_task(task1, 256);
 	tsk2 = create_kernel_task(task2, 256);
+	tsk3 = create_kernel_task(task3, 256);
 
-	pick_task(tsk1);
+	enqueue_task(tsk1);
+	enqueue_task(tsk2);
+	enqueue_task(tsk3);
+
 	resume();
 
 	//resume() never returns
@@ -104,7 +116,14 @@ void kernel_main(void)
 
 }
 
-
+void handle_kernel_call(int param){
+	if(param > 0){
+		//kprintf("Kernel call: %d\n", param);
+		sleep_ms(param);
+	}else{ 
+		scheduler();
+	}
+}
 
 void kerror(const char* error) {
 	kprintf("Kerror: %s\n", error);

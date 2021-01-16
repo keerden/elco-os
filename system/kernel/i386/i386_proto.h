@@ -88,5 +88,6 @@ extern void irq14(void);
 extern void irq15(void);
 
 extern void kernel_call(void);
+extern void do_kernel_call(int param);
 
 #endif

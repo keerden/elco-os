@@ -53,7 +53,7 @@ void arch_display_number(int num, size_t x, size_t y) {
 	}
 
 	do {
-		buffer[i] = '0' + (char) (num % 10);
+		buffer[i] =  (char)('0' +  (num % 10));
 		i++;
 		num = num / 10;
 	} while (num > 0);

@@ -78,20 +78,8 @@ void irq_handler(uint32_t int_no) {
 
 
 
-uint32_t tick = 0;
 
-
-static void timer_callback(void)
-{
-    tick++;
-    if(tick > 60){
-        kprintf("tick\n");
-        tick = 0;
-    }
-
-}
-
-void init_timer(uint32_t frequency)
+void arch_timer_init(uint32_t frequency, void (*callback)(void))
 {
    // The value we send to the PIT is the value to divide it's input clock
    // (1193180 Hz) by, to get our required frequency. Important to note is
@@ -111,7 +99,6 @@ void init_timer(uint32_t frequency)
    outportb(0x40, l);
    outportb(0x40, h);
 
-    // Firstly, register our timer callback.
-   irq_set_handler(0, &timer_callback);
+   irq_set_handler(0, callback);
 
 } 

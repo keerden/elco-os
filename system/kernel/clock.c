@@ -8,22 +8,30 @@
 
 static uint32_t clock_ticks = 0;
 
-static struct task *next_timer_event;
+static task_t *next_timer_event;
 
 static void timer_callback(void)
 {
-    clock_ticks ++;
+    ++clock_ticks;
 
-if(next_timer_event != NULL && next_timer_event->timer_expire <= clock_ticks){
-
-    while(next_timer_event != NULL && next_timer_event->timer_expire <= clock_ticks){
-        struct task* tsk = next_timer_event;
-        next_timer_event = tsk->timer_next;
-        tsk->timer_next = NULL;
-        unblock_task(tsk);
+    if(current_task->flags & TASK_FLAGS_PREEMPTIBLE){
+        current_task->ticks_left--;
+        if(current_task->ticks_left == 0){
+            current_task->ticks_left = current_task->quantum;
+            preempt();
+        }
     }
 
-}
+    if(next_timer_event != NULL && next_timer_event->timer_expire <= clock_ticks){
+
+        while(next_timer_event != NULL && next_timer_event->timer_expire <= clock_ticks){
+            task_t* tsk = next_timer_event;
+            next_timer_event = tsk->timer_next;
+            tsk->timer_next = NULL;
+            unblock_task(tsk);
+        }
+
+    }
 
 }
 
@@ -37,7 +45,7 @@ void sleep_ms(int ms){
     if(ms <= 0)
         return;
     
-    struct task **nxtPtr;
+    task_t **nxtPtr;
 
 
     uint32_t ticks = (uint32_t) ((KERNEL_CLOCK_FREQ * ms) + 999) / 1000;
@@ -55,7 +63,7 @@ void sleep_ms(int ms){
     block_task(current_task);
 
     // kprintf("sleep(%d)queue:", ms);
-    // for(struct task *cur = next_timer_event; cur != NULL; cur = cur->timer_next){
+    // for(task_t *cur = next_timer_event; cur != NULL; cur = cur->timer_next){
     //     kprintf(" %d->%d", cur->pid, cur->timer_expire);
     // }
     // kprintf("\n");

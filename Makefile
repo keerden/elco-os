@@ -63,7 +63,11 @@ iso: all
 qemu: iso
 	qemu-system-i386 -cdrom $(ISOFILE) -m 128M
 
+qemudb: iso
+	ddd&
+	qemu-system-i386 -cdrom $(ISOFILE) -m 128M -s -S -monitor stdio
+
 bochs: iso
 	bochs
 
-.PHONY: all clean clean-all install-headers install iso qemu $(PROJDIRS)
+.PHONY: all clean clean-all install-headers install iso qemu qemudb $(PROJDIRS)

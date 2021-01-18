@@ -14,5 +14,6 @@
 #define PAGE_ALIGN(vaddr) (((vaddr) + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1))
 #define PAGE_FLOOR(vaddr) ((vaddr) & ~(PAGE_SIZE - 1))
 
+#define LOWEST_TASK_PRIORITY   16
 
 #endif

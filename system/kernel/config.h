@@ -13,9 +13,7 @@
 #define KERNEL_PSTACK_BOTTOM    0XFF800000u         
 #define KERNEL_PSTACK_PTE       0xFFFFE000u          //virtual address of recursive mapped page tables
 
-#define KERNEL_CLOCK_FREQ      100                    //timer ticks per second
-
-
-
+#define KERNEL_CLOCK_FREQ       1000                    //timer ticks per second
+#define TASK_DEFAULT_QUANTUM    10
 
 #endif

@@ -130,7 +130,8 @@ IRQ 15
 
 .global do_kernel_call
 .global kernel_call
-.extern handle_kernel_call # void handle_kernel_call(int param)
+.extern scheduler           # void scheduler(void)
+.extern handle_kernel_call  # void handle_kernel_call(int param)
 .extern nested_intr
 .extern next_task
 .extern current_task
@@ -186,7 +187,8 @@ resume:
     cmpl $0, nested_intr
     jne 0f
 
-    # load task
+    # run scheduler
+    call scheduler
     mov next_task, %esi     # esi = address of the next task's struct = pointer to context
     mov %esi, current_task
     mov (%esi) , %esp       # load context, pointed to by esi 

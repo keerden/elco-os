@@ -61,34 +61,40 @@ void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 
 }
 
-struct task *tsk1;
-struct task *tsk2;
-struct task *tsk3;
+task_t *tsk1;
+task_t *tsk2;
+task_t *tsk3;
+task_t *tsk4;
 
 void task1(void){
     int a = 0;
     while(1){
         arch_display_number(a++, 0, 15);
-		do_kernel_call(0);
+    //	if(a % 1000000 == 0){
+	//		do_kernel_call(5000);
+	//	}
 		
     }
 }
 void task2(void){
     int a = 0;
     while(1){
-        arch_display_number(a++, 20, 15);
-		do_kernel_call(500);
-		
+        arch_display_number(a++, 10, 15);
     }
 }
 
 void task3(void){
     int a = 0;
     while(1){
-        arch_display_number(a++, 40, 15);
-    	if(a % 100000 == 0){
-			do_kernel_call(2000);
-		}
+        arch_display_number(a++, 20, 15);
+    }
+}
+
+void task4(void){
+    int b = 0;
+    while(1){
+        arch_display_number(b++, 50, 15);
+		do_kernel_call(1000);
     }
 }
 
@@ -100,13 +106,15 @@ void kernel_main(void)
 //	arch_intr_enable();
 	clock_setup();
 
-	tsk1 = create_kernel_task(task1, 256);
-	tsk2 = create_kernel_task(task2, 256);
-	tsk3 = create_kernel_task(task3, 256);
+	tsk1 = create_kernel_task(task1, 256, 1);
+	tsk2 = create_kernel_task(task2, 256, 1);
+	tsk3 = create_kernel_task(task3, 256, 1);
+	tsk4 = create_kernel_task(task4, 256, 0);
 
 	enqueue_task(tsk1);
 	enqueue_task(tsk2);
 	enqueue_task(tsk3);
+	enqueue_task(tsk4);
 
 	resume();
 
@@ -121,7 +129,7 @@ void handle_kernel_call(int param){
 		//kprintf("Kernel call: %d\n", param);
 		sleep_ms(param);
 	}else{ 
-		scheduler();
+		preempt();
 	}
 }
 

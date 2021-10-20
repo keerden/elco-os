@@ -136,14 +136,14 @@ IRQ 15
 .extern next_task
 .extern current_task
 
-do_kernel_call:     # do_kernel_call(int)
+do_kernel_call:     # void do_kernel_call(int)
     mov (4)(%esp), %eax
     int $128
     ret
 
 kernel_call:
     cli
-    push %eax
+    push %eax   # push eax as 'error code' for our generic interrupt handler
     call save
 
     push %eax   # pass syscall parameter
@@ -167,7 +167,7 @@ save:
     mov %eax, %fs
     mov %eax, %gs
 
-    # save the stack pointer as tasks context
+    # save the stack pointer in tasks context
     mov current_task, %eax  # load addresss
     mov %esp, (%eax)        # save pointer
 

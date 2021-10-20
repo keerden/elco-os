@@ -5,6 +5,7 @@
 #include <libk.h>
 #include <kstring.h>
 #include <kstdlib.h>
+#include <cpuid.h>
 
 #include <elco-os/multiboot.h>
 
@@ -98,10 +99,30 @@ void task4(void){
     }
 }
 
+
+static int get_model(void)
+{
+    int ebx, unused;
+    __cpuid(0, unused, ebx, unused, unused);
+    return ebx;
+}
+
+
 void kernel_main(void)
 {
  	print_logo();
 	kdebug("started\n");
+	kdebug("CPU Model: %x\n", get_model());
+
+	int eax, ebx, ecx, edx;
+    __cpuid(1, eax, ebx, ecx, edx);
+
+	kdebug("CPU version eax: %x\n", eax);
+	kdebug("CPU features ebx: %x\n", ebx);
+	kdebug("CPU features ecx: %x\n", ecx);
+	kdebug("CPU features edx: %x\n", edx);
+	kdebug("CPU Model: %x\n", get_model());
+
 
 //	arch_intr_enable();
 	clock_setup();

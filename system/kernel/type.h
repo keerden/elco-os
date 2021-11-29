@@ -32,6 +32,48 @@ struct kinfo {
 
 };
 
+typedef struct message{
+    uint8_t contents[MESSAGE_SIZE];
+} message_t;
+
+
+typedef uint16_t message_flags_t;
+typedef uint16_t task_flags_t;
+
+typedef struct task {
+    //arch defined
+    intr_stack_t *context;
+    phys_bytes page_dir;  
+    void* stack_space;
+    size_t stack_size;
+
+    /*** clock ***/
+    struct task *timer_next;
+    uint32_t timer_expire;
+
+    /*** scheduling ***/
+    short priority;
+    struct task *next_ready;
+    uint16_t ticks_left;
+    uint16_t quantum;
+
+    /*** messaging ***/
+    message_t message_buffer;
+    message_t *message_ptr;
+    message_flags_t message_flags;
+    struct task *message_send_to;
+    int message_rec_pid;
+    struct task *message_q_head;
+    struct task *message_q_next;
+
+
+    int32_t pid;
+    task_flags_t flags;
+       
+} task_t;
+
+
+
 
 
 #endif

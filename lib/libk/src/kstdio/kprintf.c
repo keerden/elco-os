@@ -123,11 +123,10 @@ static char* i_convert (char* s, unsigned long long val, int base, int digits)
 
 static size_t i_print(unsigned long long val, int base)
 {
-	char buff[1024];
+	char buff[65];
 	char* s = buff;
 	size_t size;
 
-	
 
 	s = i_convert(s, val, base, 1);
 	size = (size_t) (s - buff);

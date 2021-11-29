@@ -1,10 +1,6 @@
 #include <libk.h>
 
 #include "kernel.h"
-#include "task.h"
-#include "clock.h"
-
-
 
 static uint32_t clock_ticks = 0;
 

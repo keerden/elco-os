@@ -16,4 +16,19 @@
 
 #define LOWEST_TASK_PRIORITY   16
 
+#define TASK_FLAGS_PREEMPTIBLE  0x0001u
+#define TASK_FLAGS_AFTER_SWITCH 0x0002u
+
+#define PID_NO_TASK     INT32_MIN
+#define PID_ALL_TASKS   (INT32_MIN + 1)
+#define PID_MIN         (INT32_MIN + 2)
+#define PID_MAX         INT32_MAX
+
+#define MESSAGE_FLAGS_NONE          0x0000u
+#define MESSAGE_FLAGS_SENDING       0x0001u
+#define MESSAGE_FLAGS_RECEIVING     0x0002u
+#define MESSAGE_FLAGS_SENDREC       0x0003u
+#define MESSAGE_FLAGS_DELIVERING    0x0080u
+
+
 #endif

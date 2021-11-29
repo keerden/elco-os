@@ -11,14 +11,16 @@
 #include <kstddef.h>
 #include <kstdint.h>
 
+#if ARCHITECTURE == _ARCH_I386
+    #include "i386/i386.h"
+#endif
+
 #include "config.h"
 #include "const.h"
 #include "type.h"
 #include "glo.h"
 #include "proto.h"
 
-#if ARCHITECTURE == _ARCH_I386
-    #include "i386/arch_interface.h"
-#endif
+
 
 #endif

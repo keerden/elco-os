@@ -64,13 +64,22 @@ void irq_clear_handler(int intr_no) {
     pic_set_mask((uint8_t) intr_no);
 }
 
+
+void DEBUG(){
+    kprintf("DEBUG\n");
+    kprintf("DEBUG2\n");
+}
+
 void irq_handler(uint32_t int_no) {
     void (*handler)(void);
     handler = irq_handlers[int_no];
     if(handler != NULL){
         handler();
     }else{
+            DEBUG();
+           kprintf("unhandled INT no: %u\n", int_no);
            kpanic("unhandled IRQ!");
+
     }
     pic_eoi((uint8_t) int_no);
 }

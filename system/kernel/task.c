@@ -1,5 +1,4 @@
 #include "kernel.h"
-#include "task.h"
 
 #include <libk.h>
 #include <kstring.h>
@@ -27,12 +26,26 @@ void multitasking_init(void)
 {
 
     for(int i = 0; i < TASK_COUNT; i++){
-        ptable[i].pid = -1;
+        ptable[i].pid = PID_NO_TASK;
         ptable[i].context = NULL;
         ptable[i].stack_space = NULL;
         ptable[i].stack_size = 0;
         ptable[i].page_dir = (phys_bytes) kvirt_to_phys(boot_page_directory);
         ptable[i].timer_next = NULL;
+
+        ptable[i].priority = LOWEST_TASK_PRIORITY;
+        ptable[i].next_ready = NULL;
+        ptable[i].quantum = 0;
+        ptable[i].ticks_left = 0;
+
+        kmemset(&ptable[i].message_buffer, 0, sizeof(message_t));
+        ptable[i].message_ptr = NULL;
+        ptable[i].message_flags = MESSAGE_FLAGS_NONE;
+        ptable[i].message_send_to = NULL;
+        ptable[i].message_rec_pid = PID_NO_TASK;
+        ptable[i].message_q_head = NULL;
+        ptable[i].message_q_next = NULL;
+        
     }
 
     next_task = NULL;
@@ -45,7 +58,7 @@ void multitasking_init(void)
     }
 
     idle_task = create_kernel_task(idle, 128, LOWEST_TASK_PRIORITY); //TODO: change stack size
-    idle_task->flags &= ~TASK_FLAGS_PREEMPTIBLE; //no need to preempt idle on clock tick
+    idle_task->flags &= (task_flags_t) ~TASK_FLAGS_PREEMPTIBLE; //no need to preempt idle on clock tick
     reschedule_needed = true;
 }
 
@@ -62,7 +75,7 @@ task_t *create_kernel_task(void * entry_point, size_t stack_size, short priority
 
     for(int i = 0; i < TASK_COUNT; i++)
     {
-        if(ptable[i].pid < 0){
+        if(ptable[i].pid == PID_NO_TASK){
             tsk = &ptable[i];
             break;
         }
@@ -71,7 +84,7 @@ task_t *create_kernel_task(void * entry_point, size_t stack_size, short priority
     if(tsk != NULL) {
         stack = kmalloc(stack_size);
         if(stack) {
-            tsk->pid = pid_count++;
+            tsk->pid = pid_count++; //FIXME: overflow possible!
             tsk->stack_space = stack;
             tsk->stack_size = stack_size;
             tsk->priority = priority;
@@ -101,12 +114,45 @@ task_t *create_kernel_task(void * entry_point, size_t stack_size, short priority
             tsk->context = context;
             tsk->timer_next = NULL;
 
+
+            kmemset(&tsk->message_buffer, 0, sizeof(message_t));
+            tsk->message_ptr = NULL;
+            tsk->message_flags = MESSAGE_FLAGS_NONE;
+            tsk->message_send_to = NULL;
+            tsk->message_rec_pid = PID_NO_TASK;
+            tsk->message_q_head = NULL;
+            tsk->message_q_next = NULL;
+
         } else {
             tsk = NULL;
         }
     }
 
     return tsk;
+}
+
+task_t *find_task(int32_t pid)
+{
+
+    if(pid == PID_ALL_TASKS || pid == PID_NO_TASK)
+        return NULL;
+
+    for(int i = 0; i < TASK_COUNT; i++){
+        if(ptable[i].pid == pid){
+            return &ptable[i];
+        }
+
+    }
+
+    return NULL;
+}
+
+void setPreemptible(task_t *tsk, bool preemtible){
+    if(preemtible){
+        tsk->flags |= TASK_FLAGS_PREEMPTIBLE;
+    } else{
+        tsk->flags &= (task_flags_t) ~TASK_FLAGS_PREEMPTIBLE;
+    }
 }
 
 void enqueue_task(task_t *tsk){

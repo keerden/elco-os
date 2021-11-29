@@ -2,6 +2,8 @@
 #define _I386_PROTO_H
 #include <kstdint.h>
 
+#define CDECL __attribute__ ((cdecl))
+
 /* interrupts.c */
 void exception_set_handler(int intr_no, void (*handler)(uint32_t error));
 void exception_clear_handler(int intr_no);
@@ -88,6 +90,6 @@ extern void irq14(void);
 extern void irq15(void);
 
 extern void kernel_call(void);
-extern void do_kernel_call(int param);
+extern CDECL int do_kernel_call(int callnr, uint32_t arg1, uint32_t arg2);
 
 #endif

@@ -1,6 +1,4 @@
 #include "kernel.h"
-#include "clock.h"
-#include "task.h"
 
 #include <libk.h>
 #include <kstring.h>
@@ -58,7 +56,7 @@ void kernel_early(uint32_t magic, multiboot_info_t *bootinfo)
 	arch_init_interrupts();
 	memory_init();
 	multitasking_init();
-
+	clock_setup();
 
 }
 
@@ -67,35 +65,221 @@ task_t *tsk2;
 task_t *tsk3;
 task_t *tsk4;
 
+/*
+receive after send:
+	timestep		task1	task2	task3	task4
+
+	0				wait 1	wait 2	wait 3	wait	wait in order to get correct order
+	1				1->3
+	2						2->3
+	3				wait2			rec All			should receive from 1, 1 unblocks
+	4						wait2	rec ALL 		should receive from 2, 2 unblocks
+	5				1->3
+	6						2->3
+	7						wait5	rec 2			should receive 2, 2 unblocks
+	8				wait2			rec 1			should receive 1, 1 unblocks
+send after receive
+	9								rec All			blocks and waits
+	10				1->3			rec 2			1 returns, 3 unblocks and wait for message from 2
+	11				1->3							1 blocks, 3 stays blocked
+	12						2->3					2 returns, 3 unblocks
+	13								rec 1			3 returns, 1 unblocks			
+
+*/
+
+
+
+#define KC_SEND(pid, msg) (do_kernel_call(3, (uint32_t) (pid), (uint32_t) (msg)))
+#define KC_REC(pid, msg) (do_kernel_call(4, (uint32_t) (pid), (uint32_t) (msg)))
+#define KC_WAIT(ms) (do_kernel_call(0, (ms), 0))
+#define KC_PREEMPT() (do_kernel_call(1, 0, 0))
+#define STEP_MS 2000
+
+
+
+
+
+
 void task1(void){
-    int a = 0;
+	int r;
+	message_t mess;
     while(1){
-        arch_display_number(a++, 0, 15);
-    //	if(a % 1000000 == 0){
-	//		do_kernel_call(5000);
-	//	}
+	
+		kprintf("t=0 t1 wait1\n");
+		KC_WAIT(1 * STEP_MS);
+
+		mess.contents[0] = 1;
+		mess.contents[1] = 1;
+		kprintf("t=1 t1->3\n");
+		r = KC_SEND(3, &mess);
+		if(r) kprintf("ERROR SENDING t1->3\n");
+		
+		kprintf("t=3 t1 wait2\n");
+		KC_WAIT(2 * STEP_MS);
+
+		mess.contents[0] = 1;
+		mess.contents[1] = 2;
+		kprintf("t=5 t1->3\n");
+		r = KC_SEND(3, &mess);
+		if(r) kprintf("ERROR SENDING t1->3\n");
+
+		kprintf("t=8 t1 wait2\n");
+		KC_WAIT(2 * STEP_MS);
+
+
+		mess.contents[0] = 1;
+		mess.contents[1] = 3;
+		kprintf("t=10 t1->3\n");
+		r = KC_SEND(3, &mess);
+		if(r) kprintf("ERROR SENDING t1->3\n");
+
+		kprintf("t=10 t1 wait1\n");
+		KC_WAIT(1 * STEP_MS);
+
+		mess.contents[0] = 1;
+		mess.contents[1] = 4;
+		kprintf("t=11 t1->3\n");
+		r = KC_SEND(3, &mess);
+		if(r) kprintf("ERROR SENDING t1->3\n");
+
+		kprintf("t=13 t1 done\n");
+
+		while(1){
+			KC_PREEMPT();
+		};
 		
     }
 }
 void task2(void){
-    int a = 0;
+	int r;
+	message_t mess;
     while(1){
-        arch_display_number(a++, 10, 15);
+	
+		kprintf("t=0 t2 wait2\n");
+		KC_WAIT(2 * STEP_MS);
+
+		mess.contents[0] = 2;
+		mess.contents[1] = 1;
+		kprintf("t=2 t2->3\n");
+		r = KC_SEND(3, &mess);
+		if(r) kprintf("ERROR SENDING t2->3\n");
+		
+		kprintf("t=4 t2 wait2\n");
+		KC_WAIT(2 * STEP_MS);
+
+		mess.contents[0] = 2;
+		mess.contents[1] = 2;
+		kprintf("t=6 t2->3\n");
+		r = KC_SEND(3, &mess);
+		if(r) kprintf("ERROR SENDING t2->3\n");
+
+		kprintf("t=7 t2 wait5\n");
+		KC_WAIT(5 * STEP_MS);
+
+		mess.contents[0] = 2;
+		mess.contents[1] = 3;
+		kprintf("t=12 t2->3\n");
+		r = KC_SEND(3, &mess);
+		if(r) kprintf("ERROR SENDING t2->3\n");
+
+		kprintf("t=12 t2 done\n");
+		while(1){KC_PREEMPT();}
+		
     }
 }
 
 void task3(void){
-    int a = 0;
+	int r;
+	message_t mess;
+	kmemset(&mess, 0, sizeof(message_t));
     while(1){
-        arch_display_number(a++, 20, 15);
+	
+		kprintf("t=0 t3 wait3\n");
+		KC_WAIT(3 * STEP_MS);
+
+		kprintf("t=3 t3 REC *\n");
+		r = KC_REC(PID_ALL_TASKS, &mess);
+		if(r) kprintf("ERROR REC t3\n");
+
+		if(mess.contents[0] != 1) kprintf("t3 Rec error pid: %d\n", mess.contents[0]);
+		if(mess.contents[1] != 1) kprintf("t3 Rec error num: %d\n", mess.contents[1]);
+		kmemset(&mess, 0, sizeof(message_t));
+		kprintf("t=3 t3 REC done\n");
+
+		KC_WAIT(1 * STEP_MS);
+		kprintf("t=4 t3 REC *\n");
+		r = KC_REC(PID_ALL_TASKS, &mess);
+		if(r) kprintf("ERROR REC t3\n");
+
+		if(mess.contents[0] != 2) kprintf("t3 Rec error pid: %d\n", mess.contents[0]);
+		if(mess.contents[1] != 1) kprintf("t3 Rec error num: %d\n", mess.contents[1]);
+		kmemset(&mess, 0, sizeof(message_t));
+		kprintf("t=4 t3 REC done\n");
+
+
+		kprintf("t=4 t3 wait3\n");
+		KC_WAIT(3 * STEP_MS);
+
+		kprintf("t=7 t3 REC 2\n");
+		r = KC_REC(2, &mess);
+		if(r) kprintf("ERROR REC t3\n");
+
+		if(mess.contents[0] != 2) kprintf("t3 Rec error pid: %d\n", mess.contents[0]);
+		if(mess.contents[1] != 2) kprintf("t3 Rec error num: %d\n", mess.contents[1]);
+		kmemset(&mess, 0, sizeof(message_t));
+		kprintf("t=7 t3 REC done\n");
+
+		KC_WAIT(1 * STEP_MS);
+
+		kprintf("t=8 t3 REC 1\n");
+		r = KC_REC(1, &mess);
+		if(r) kprintf("ERROR REC t3\n");
+
+		if(mess.contents[0] != 1) kprintf("t3 Rec error pid: %d\n", mess.contents[0]);
+		if(mess.contents[1] != 2) kprintf("t3 Rec error num: %d\n", mess.contents[1]);
+		kmemset(&mess, 0, sizeof(message_t));
+		kprintf("t=8 t3 REC done\n");
+
+		KC_WAIT(1 * STEP_MS);
+
+		kprintf("t=9 t3 REC *\n");
+		r = KC_REC(PID_ALL_TASKS, &mess);
+		if(r) kprintf("ERROR REC t3\n");
+
+		if(mess.contents[0] != 1) kprintf("t3 Rec error pid: %d\n", mess.contents[0]);
+		if(mess.contents[1] != 3) kprintf("t3 Rec error num: %d\n", mess.contents[1]);
+		kmemset(&mess, 0, sizeof(message_t));
+		kprintf("t=10 t3 REC done\n");
+		
+		kprintf("t=10 t3 REC 2\n");
+		r = KC_REC(2, &mess);
+		if(r) kprintf("ERROR REC t3\n");
+
+		if(mess.contents[0] != 2) kprintf("t3 Rec error pid: %d\n", mess.contents[0]);
+		if(mess.contents[1] != 3) kprintf("t3 Rec error num: %d\n", mess.contents[1]);
+		kmemset(&mess, 0, sizeof(message_t));
+		kprintf("t=12 t3 REC done\n");
+		KC_WAIT(1 * STEP_MS);
+
+		kprintf("t=13 t3 REC 1\n");
+		r = KC_REC(1, &mess);
+		if(r) kprintf("ERROR REC t3\n");
+
+		if(mess.contents[0] != 1) kprintf("t3 Rec error pid: %d\n", mess.contents[0]);
+		if(mess.contents[1] != 4) kprintf("t3 Rec error num: %d\n", mess.contents[1]);
+		kmemset(&mess, 0, sizeof(message_t));
+		kprintf("t=13 t3 REC done\n");
+
+		while(1) KC_PREEMPT();
+		
     }
 }
 
 void task4(void){
-    int b = 0;
+    int a = 0;
     while(1){
-        arch_display_number(b++, 50, 15);
-		do_kernel_call(1000);
+        arch_display_number(a++, 50, 15);
+		KC_WAIT(STEP_MS);
     }
 }
 
@@ -117,20 +301,21 @@ void kernel_main(void)
 	int eax, ebx, ecx, edx;
     __cpuid(1, eax, ebx, ecx, edx);
 
-	kdebug("CPU version eax: %x\n", eax);
+	/*kdebug("CPU version eax: %x\n", eax);
 	kdebug("CPU features ebx: %x\n", ebx);
 	kdebug("CPU features ecx: %x\n", ecx);
 	kdebug("CPU features edx: %x\n", edx);
 	kdebug("CPU Model: %x\n", get_model());
+	*/
 
 
-//	arch_intr_enable();
-	clock_setup();
-
-	tsk1 = create_kernel_task(task1, 256, 1);
-	tsk2 = create_kernel_task(task2, 256, 1);
-	tsk3 = create_kernel_task(task3, 256, 1);
-	tsk4 = create_kernel_task(task4, 256, 0);
+	tsk1 = create_kernel_task(task1, 1024, 1);
+	setPreemptible(tsk1, false);
+	tsk2 = create_kernel_task(task2, 1024, 1);
+	setPreemptible(tsk2, false);
+	tsk3 = create_kernel_task(task3, 1024, 1);
+	setPreemptible(tsk3, false);
+	tsk4 = create_kernel_task(task4, 1024, 1);
 
 	enqueue_task(tsk1);
 	enqueue_task(tsk2);
@@ -139,20 +324,70 @@ void kernel_main(void)
 
 	resume();
 
+
+
+/* TODO:
+	make simple message passing system via registers.
+	message is saved in proctable of sending process
+	sending process is blocked until delivered
+	
+
+*/
+
+
+
+
+
 	//resume() never returns
 
 	while(1);
 
 }
 
-void handle_kernel_call(int param){
-	if(param > 0){
-		//kprintf("Kernel call: %d\n", param);
-		sleep_ms(param);
-	}else{ 
-		preempt();
+void handle_kernel_call(void){
+	int callnr = (int) current_task->context->eax;
+	uint32_t arg1 = (uint32_t) current_task->context->ecx;
+	uint32_t arg2 = (uint32_t) current_task->context->edx;
+
+	int result = 0;
+
+
+	switch(callnr){
+		case 0:	//sleep
+			sleep_ms((int) arg1);
+			break;
+
+		case 1:
+			preempt();
+			break;
+		case 2:	//getpid
+			result = current_task->pid;
+			break;
+		case 3:	//send
+			result = message_send(current_task, (int32_t) arg1, (message_t *) arg2);
+			break;
+		case 4:	//receive
+			result = message_receive(current_task, (int32_t) arg1, (message_t *) arg2);
+			break;		
+		default:
+			break;
+	}
+
+	current_task->context->eax = (uint32_t) result;
+}
+
+void after_context_switch(void){
+	if(current_task->flags & TASK_FLAGS_AFTER_SWITCH){
+		current_task->flags &= (task_flags_t) ~TASK_FLAGS_AFTER_SWITCH;
+
+		if(message_deliver(current_task)){
+			current_task->context->eax = 0;
+		}
 	}
 }
+
+
+
 
 void kerror(const char* error) {
 	kprintf("Kerror: %s\n", error);

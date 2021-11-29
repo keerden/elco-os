@@ -118,7 +118,31 @@ IRQ 3
 IRQ 4
 IRQ 5
 IRQ 6
-IRQ 7
+# IRQ 7
+.global irq7
+irq7:
+    cli
+    # check for spurious interrupt, read ISR register of PIC
+    push %eax 
+    movw $(PIC_OCW3_ISR_READ), %ax      # sets al to command byte, and clears upper half
+    outb %al, $(PIC0_ADDR_C)
+    inb $(PIC0_ADDR_C), %al
+    bt $7, %ax  # test bit 7, and set carry if set
+    jc 0f       # jump if interrupt was set
+    
+    # spurious interrupt, so pop eax and return
+    pop %eax
+    iret
+
+    0:
+    pop %eax
+    push $0
+    call save
+    push $7
+    call irq_handler
+    jmp resume
+
+
 IRQ 8
 IRQ 9
 IRQ 10
@@ -130,15 +154,21 @@ IRQ 15
 
 .global do_kernel_call
 .global kernel_call
-.extern scheduler           # void scheduler(void)
-.extern handle_kernel_call  # void handle_kernel_call(int param)
+.extern scheduler               # void scheduler(void)
+.extern after_context_switch    # void after_context_switch(void)
+.extern handle_kernel_call      # void handle_kernel_call(int param)
 .extern nested_intr
 .extern next_task
 .extern current_task
 
-do_kernel_call:     # void do_kernel_call(int)
-    mov (4)(%esp), %eax
+do_kernel_call:     # int do_kernel_call(callnum, arg1, arg2)
+    push %ebp
+    mov  %esp, %ebp
+    mov (8)(%ebp), %eax     # callnum
+    mov (12)(%ebp), %ecx    # arg1
+    mov (16)(%ebp), %edx    # arg2
     int $128
+    pop %ebp
     ret
 
 kernel_call:
@@ -146,16 +176,15 @@ kernel_call:
     push %eax   # push eax as 'error code' for our generic interrupt handler
     call save
 
-    push %eax   # pass syscall parameter
-    call handle_kernel_call
-    pop  %eax
+    call handle_kernel_call # side effect: the eax value in the saved context is set to return value. 
+                            # After iret in resume,  eax is loaded with this value.
 
     jmp resume     
 
 # switch to kernel stack and do stuff
 .global save
 save:
-    pusha                   # Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
+    pushal                   # Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
     push %ds                    
     push %es
     push %fs
@@ -191,6 +220,10 @@ resume:
     call scheduler
     mov next_task, %esi     # esi = address of the next task's struct = pointer to context
     mov %esi, current_task
+
+    # switch context
+    call after_context_switch
+
     mov (%esi) , %esp       # load context, pointed to by esi 
 0:
 
@@ -200,6 +233,6 @@ resume:
     pop %fs
     pop %es
     pop %ds
-    popa
+    popal
     add  $8, %esp     # Cleans up the pushed error code and return addr
     iret              # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP

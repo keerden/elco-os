@@ -100,6 +100,8 @@
 #define PIC_ICW4_BUF_MASTER	0x0CU		/* Buffered mode/master */
 #define PIC_ICW4_SFNM	    0x10U		/* Special fully nested (not) */
 
+#define PIC_OCW3_ISR_READ   0x0BU       /* Read ISR register command */
+
 #define PIC_EOI		0x20U		/* End-of-interrupt command code */
 
 

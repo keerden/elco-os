@@ -11,6 +11,7 @@
 #define KERNEL_VIRTUAL_BASE 0xC0000000 //virtual address of kernel space
 
 #define PAGE_SIZE 4096u
+#define MESSAGE_SIZE 64u
 
 #define MAX_BOOT_MMAP_SIZE 128
 #define MAX_MMAP_SIZE (MAX_BOOT_MMAP_SIZE + 2) /* max mmap size from bootloader 
